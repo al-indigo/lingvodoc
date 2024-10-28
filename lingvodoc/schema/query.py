@@ -3748,7 +3748,7 @@ class Query(graphene.ObjectType):
 
             entries_with_entities(
                 results_cursor.distinct(),
-                publish = search_in_published,
+                publish = None if not search_in_published else True,
                 accept = True,
                 check_perspective = False))
 
