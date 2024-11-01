@@ -5696,7 +5696,7 @@ class ComplexDistance(graphene.Mutation):
                 morph_relation = relation_by_pair.copy()
                 continue
 
-            header.update(perspectives)
+            header.update((tuple(l_id), tuple(p_id)) for (l_id, p_id) in perspectives)
 
             # Getting complex list
 
@@ -5718,7 +5718,7 @@ class ComplexDistance(graphene.Mutation):
 
         # Getting result complex matrix
         max_distance = 25
-        header = list(header)
+        header = sorted(header)
         matrix_size = len(header)
         distance_matrix = numpy.full((matrix_size, matrix_size), max_distance, dtype='float')
         percent_matrix = numpy.full((matrix_size, matrix_size), "n/a", dtype='object')
@@ -5734,7 +5734,7 @@ class ComplexDistance(graphene.Mutation):
 
             percent_matrix[i, j] = percent_matrix[j, i] = f"{round(distance_matrix[i, j], 2)} ({int(relation * 100)}%)"
 
-        return distance_matrix, percent_matrix, header, pers_by_lang
+        return distance_matrix, percent_matrix, header, dict(sorted(pers_by_lang.items()))
 
     @staticmethod
     def mutate(
