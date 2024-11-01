@@ -3956,7 +3956,7 @@ class CognateAnalysis(graphene.Mutation):
                     relation = round(1 - int(diff) / max_diff, 2)
                     relation_data_array[n1, n2] = relation
 
-        distance_dict = {'__analyses__': 'cognate',
+        distance_dict = {'__analysis__': 'cognate',
                          '__base_language_id__': base_language_id,
                          '__perspectives__': perspectives,
                          '__relation_matrix__': relation_data_array.tolist()}
