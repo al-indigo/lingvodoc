@@ -3956,7 +3956,8 @@ class CognateAnalysis(graphene.Mutation):
                     relation = round(1 - int(diff) / max_diff, 2)
                     relation_data_array[n1, n2] = relation
 
-        distance_dict = {'__base_language_id__': base_language_id,
+        distance_dict = {'__analyses__': 'cognate',
+                         '__base_language_id__': base_language_id,
                          '__perspectives__': perspectives,
                          '__relation_matrix__': relation_data_array.tolist()}
 
@@ -4552,9 +4553,9 @@ class SwadeshAnalysis(graphene.Mutation):
 
         url_path = ''.join([
             storage['prefix'], storage['static_route'],
-            'glottochronology', '/', str(cur_time)])
+            analysis_str, '/', str(cur_time)])
 
-        storage_dir = os.path.join(storage['path'], 'glottochronology', str(cur_time))
+        storage_dir = os.path.join(storage['path'], analysis_str, str(cur_time))
 
         xlsx_path = os.path.join(storage_dir, f'{filename}.xlsx')
         json_path = os.path.join(storage_dir, f'{filename}')
@@ -4951,7 +4952,8 @@ class SwadeshAnalysis(graphene.Mutation):
         # GC
         del result_pool
 
-        distance_dict = {'__base_language_id__': base_language_id,
+        distance_dict = {'__analysis__': 'glottochronology',
+                         '__base_language_id__': base_language_id,
                          '__perspectives__': perspectives,
                          '__relation_matrix__': relation_data_array.tolist()}
 
@@ -5430,7 +5432,8 @@ class MorphCognateAnalysis(graphene.Mutation):
         # GC
         del result_pool
 
-        distance_dict = {'__base_language_id__': base_language_id,
+        distance_dict = {'__analysis__': 'morphology',
+                         '__base_language_id__': base_language_id,
                          '__perspectives__': perspectives,
                          '__relation_matrix__': relation_data_array.tolist()}
 
@@ -5630,9 +5633,13 @@ class ComplexDistance(graphene.Mutation):
 
         pers_by_lang = collections.defaultdict(set)
         relation_result = {}
+        morph_relation = {}
+        header = set()
 
         # Reducing array size if there are languages duplicates
         for analysis in result_pool:
+
+            morph_flag = analysis.get('__analysis__') == 'morphology'
 
             perspectives = analysis.get('__perspectives__', [])
             p_num = len(perspectives)
@@ -5642,22 +5649,23 @@ class ComplexDistance(graphene.Mutation):
             if not p_num or len(relation_matrix) != p_num:
                 continue
 
-            languages = []
             nums_to_delete = []
 
             for i, (l1_id, p1_id) in enumerate(perspectives):
                 pers_by_lang[tuple(l1_id)].add(tuple(p1_id))
-                languages.append(tuple(l1_id))
+
+                if not morph_flag:
+                    continue
 
                 for j in range((i + 1), p_num):
                     l2_id, _ = perspectives[j]
 
                     if tuple(l2_id) == tuple(l1_id) and j not in nums_to_delete:
                         for k in range(p_num):
-                            # Get maximum values for found similar languages
+                            # Get minimum values for found similar languages
                             # and assign to first found row and column (the matrix is triangular)
-                            relation_matrix[i, k] = max(relation_matrix[[i, j], k])
-                            relation_matrix[k, i] = max(relation_matrix[k, [i, j]])
+                            relation_matrix[i, k] = min(relation_matrix[[i, j], k])
+                            relation_matrix[k, i] = min(relation_matrix[k, [i, j]])
 
                         nums_to_delete.append(j)
 
@@ -5666,16 +5674,29 @@ class ComplexDistance(graphene.Mutation):
             relation_matrix = (
                 numpy.delete(numpy.delete(relation_matrix, nums_to_delete, 0), nums_to_delete, 1))
 
-            languages = [lang for i, lang in enumerate(languages) if i not in nums_to_delete]
-            l_num = len(languages)
+            # Morphology results are grouped by language,
+            # other results are grouped by language/perspective
+            keys = [(tuple(lang), tuple(pers) if not morph_flag else None)
+                    for i, (lang, pers) in enumerate(perspectives) if i not in nums_to_delete]
+            matrix_size = len(keys)
 
-            # Collecting languages pairs with their relations
+            # Collecting language/perspective pairs with their relations
 
             relation_by_pair = {}
-            for i, l1_id in enumerate(languages):
-                for j in range((i + 1), l_num):
-                    l2_id = languages[j]
-                    relation_by_pair[(tuple(l1_id), tuple(l2_id))] = relation_matrix[i, j]
+            for i, (l1_id, p1_id) in enumerate(keys):
+                for j in range((i + 1), matrix_size):
+                    l2_id, p2_id = keys[j]
+                    lang_key = (tuple(l1_id), tuple(l2_id)) if l1_id and l2_id else None
+                    pers_key = (tuple(p1_id), tuple(p2_id)) if p1_id and p2_id else None
+                    relation_by_pair[(lang_key, pers_key)] = relation_matrix[i, j]
+
+            # If we are working with morphology result, we just store it to apply after
+
+            if morph_flag:
+                morph_relation = relation_by_pair.copy()
+                continue
+
+            header.update(perspectives)
 
             # Getting complex list
 
@@ -5688,17 +5709,24 @@ class ComplexDistance(graphene.Mutation):
                 elif pair in relation_by_pair:
                     relation_result[pair] = relation_by_pair[pair]
 
+        # Applying morphology results
+
+        for pair1 in set(morph_relation):
+            for pair2 in set(relation_result):
+                if pair1[0] == pair2[0]:
+                    relation_result[pair2] = (relation_result[pair2] + morph_relation[pair1]) / 2
+
         # Getting result complex matrix
         max_distance = 25
-        language_list = list(pers_by_lang.keys())
-        l_num = len(language_list)
-        distance_matrix = numpy.full((l_num, l_num), max_distance, dtype='float')
-        percent_matrix = numpy.full((l_num, l_num), "n/a", dtype='object')
+        header = list(header)
+        matrix_size = len(header)
+        distance_matrix = numpy.full((matrix_size, matrix_size), max_distance, dtype='float')
+        percent_matrix = numpy.full((matrix_size, matrix_size), "n/a", dtype='object')
 
-        for (l1_id, l2_id), relation in relation_result.items():
+        for ((l1_id, l2_id), (p1_id, p2_id)), relation in relation_result.items():
 
-            i = language_list.index(l1_id)
-            j = language_list.index(l2_id)
+            i = header.index((l1_id, p1_id))
+            j = header.index((l2_id, p2_id))
 
             distance_matrix[i, j] = distance_matrix[j, i] = (
                 math.sqrt(math.log(relation) / -0.1 / math.sqrt(relation)) if relation > 0 else max_distance)
@@ -5706,7 +5734,7 @@ class ComplexDistance(graphene.Mutation):
 
             percent_matrix[i, j] = percent_matrix[j, i] = f"{round(distance_matrix[i, j], 2)} ({int(relation * 100)}%)"
 
-        return distance_matrix, percent_matrix, pers_by_lang
+        return distance_matrix, percent_matrix, header, pers_by_lang
 
     @staticmethod
     def mutate(
@@ -5746,14 +5774,15 @@ class ComplexDistance(graphene.Mutation):
             return f'{dictionary_name} - {perspective_name}'
 
         try:
-            distance_matrix, percent_matrix, pers_by_lang = (
+            distance_matrix, percent_matrix, header, pers_by_lang = (
                 ComplexDistance.get_complex_matrix(result_pool))
 
-            language_header = [f' {i+1}. {get_language_str(lang_id)}' for i, lang_id in enumerate(pers_by_lang)]
+            table_header = [f' {i+1}. [{get_language_str(lang_id)}] {get_perspective_str(pers_id)}'
+                            for i, (lang_id, pers_id) in enumerate(header)]
 
             def export_html():
 
-                percent_frame = pd.DataFrame(percent_matrix, columns=language_header)
+                percent_frame = pd.DataFrame(percent_matrix, columns=table_header)
                 # Start index for distances from 1 to match with dictionaries numbers
                 percent_frame.index += 1
 
@@ -5776,7 +5805,7 @@ class ComplexDistance(graphene.Mutation):
                     language_str,
                     base_language_name,
                     distance_matrix,
-                    language_header,
+                    table_header,
                     None,
                     None,
                     None,
@@ -5791,7 +5820,7 @@ class ComplexDistance(graphene.Mutation):
                 minimum_spanning_tree = mst_list,
                 embedding_2d = embedding_2d_pca,
                 embedding_3d = embedding_3d_pca,
-                language_name_list = language_header
+                language_name_list = table_header
             )
 
             return ComplexDistance(**result_dict)
