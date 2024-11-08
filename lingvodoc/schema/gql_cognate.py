@@ -4558,7 +4558,6 @@ class SwadeshAnalysis(graphene.Mutation):
         storage_dir = os.path.join(storage['path'], analysis_str, str(cur_time))
 
         xlsx_path = os.path.join(storage_dir, f'{filename}.xlsx')
-        json_path = os.path.join(storage_dir, f'{filename}')
 
         os.makedirs(storage_dir, exist_ok=True)
 
@@ -4598,10 +4597,16 @@ class SwadeshAnalysis(graphene.Mutation):
                         if coeff > 1:
                             worksheet.set_row(row_num + 1, 14 * coeff)
 
-        with open(json_path, 'w') as json_file:
-            json.dump(distance_dict, json_file)
+        if type(distance_dict) is dict:
+            json_path = os.path.join(storage_dir, f'{filename}')
 
-        return f'{url_path}/{filename}.xlsx', f'{url_path}/{filename}'
+            with open(json_path, 'w') as json_file:
+                json.dump(distance_dict, json_file)
+
+            return f'{url_path}/{filename}.xlsx', f'{url_path}/{filename}'
+
+        else:
+            return f'{url_path}/{filename}.xlsx', None
 
     @staticmethod
     def export_html(result, tiny_dicts=None, huge_size=1048576):
@@ -5623,6 +5628,7 @@ class ComplexDistance(graphene.Mutation):
 
     result = graphene.String()
     message = graphene.String()
+    xlsx_url = graphene.String()
     minimum_spanning_tree = graphene.List(graphene.List(graphene.Int))
     embedding_2d = graphene.List(graphene.List(graphene.Float))
     embedding_3d = graphene.List(graphene.List(graphene.Float))
@@ -5756,22 +5762,39 @@ class ComplexDistance(graphene.Mutation):
             return ResponseError('Only administrator can use debug mode.')
 
         locale_id = info.context.locale_id
-        base_language_id = result_pool[0].get('__base_language_id__')
+        request = info.context.request
+        storage = request.registry.settings['storage']
 
         def get_language_str(language_id):
-            language_obj = DBSession.query(dbLanguage).filter_by(
-                client_id=language_id[0], object_id=language_id[1]).one()
+            dialect_obj = DBSession.query(dbLanguage).filter_by(id=language_id).one()
+            dialect_translation = dialect_obj.get_translation(locale_id)
 
-            return language_obj.get_translation(locale_id)
+            language_obj = dialect_obj
+
+            while language_obj:
+                if language_obj.additional_metadata.get('toc_mark'):
+                    break
+                language_obj = language_obj.parent
+
+            language_translation = (
+                f"{language_obj.get_translation(locale_id)}: "
+                if language_obj and language_obj != dialect_obj
+                else ""
+            )
+
+            return language_translation + dialect_translation
 
         def get_perspective_str(perspective_id):
-            perspective_obj = DBSession.query(dbPerspective).filter_by(
-                client_id=perspective_id[0], object_id=perspective_id[1]).one()
+            perspective_obj = DBSession.query(dbPerspective).filter_by(id=perspective_id).one()
 
             perspective_name = perspective_obj.get_translation(locale_id)
             dictionary_name = perspective_obj.parent.get_translation(locale_id)
 
             return f'{dictionary_name} - {perspective_name}'
+
+        base_language_id = result_pool[0].get('__base_language_id__', "")
+        base_language_name = get_language_str(base_language_id) if base_language_id else ""
+        language_str = f'language {base_language_id[0]}/{base_language_id[1]}' if base_language_id else ""
 
         try:
             distance_matrix, percent_matrix, header, pers_by_lang = (
@@ -5797,8 +5820,17 @@ class ComplexDistance(graphene.Mutation):
 
                 return html_result
 
-            language_str = f'language {base_language_id[0]}/{base_language_id[1]}' if base_language_id else ""
-            base_language_name = get_language_str(base_language_id) if base_language_id else ""
+            distances_frame = pd.DataFrame(percent_matrix, columns=table_header)
+            # Start index for distances from 1 to match with dictionaries numbers
+            distances_frame.index += 1
+
+            xlsx_url, _ = SwadeshAnalysis.export_xlsx_json(
+                {'Distances': distances_frame.sort_index()},
+                None,
+                base_language_name,
+                'composite',
+                storage
+            )
 
             _, mst_list, embedding_2d_pca, embedding_3d_pca = \
                 CognateAnalysis.distance_graph(
@@ -5817,6 +5849,7 @@ class ComplexDistance(graphene.Mutation):
             result_dict = dict(
                 triumph = True,
                 result = export_html(),
+                xlsx_url = xlsx_url,
                 minimum_spanning_tree = mst_list,
                 embedding_2d = embedding_2d_pca,
                 embedding_3d = embedding_3d_pca,
