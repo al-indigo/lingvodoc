@@ -5792,7 +5792,7 @@ class ComplexDistance(graphene.Mutation):
 
             return f'{dictionary_name} - {perspective_name}'
 
-        base_language_id = result_pool[0].get('__base_language_id__', "")
+        base_language_id = result_pool[0].get('__base_language_id__')
         base_language_name = get_language_str(base_language_id) if base_language_id else ""
         language_str = f'language {base_language_id[0]}/{base_language_id[1]}' if base_language_id else ""
 
