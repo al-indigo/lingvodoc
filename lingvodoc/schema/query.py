@@ -7617,6 +7617,1202 @@ class ReorderColumns(graphene.Mutation):
                     'Exception:\n' + traceback_string))
 
 
+class Tsakorpus(graphene.Mutation):
+    class Arguments:
+
+        perspective_id = LingvodocID()
+        debug_flag = graphene.Boolean()
+
+    triumph = graphene.Boolean()
+
+    parser_language_dict = {
+        'timarkh_udm': 'udmurt',
+        'timarkh_erzya': 'erzya',
+        'timarkh_meadow_mari': 'meadow_mari',
+        'timarkh_moksha': 'moksha',
+        'timarkh_komi_zyryan': 'komi_zyryan'}
+
+    tag_category_dict = {
+        '1': 'pers',
+        '2': 'pers',
+        '3': 'pers',
+        'A': 'pos',
+        'ADJ': 'pos',
+        'ADJPRO': 'pos',
+        'POST': 'pos',
+        'PART': 'pos',
+        'INTRJ': 'pos',
+        'INTERJ': 'pos',
+        'ADV': 'pos',
+        'ADVPRO': 'pos',
+        'CONJ': 'pos',
+        'CNJ': 'pos',
+        'N': 'pos',
+        'NUM': 'pos',
+        'PREP': 'pos',
+        'PRO': 'pos',
+        'IMIT': 'pos',
+        'PARENTH': 'pos',
+        'PREDIC': 'pos',
+        'PRED': 'pos',
+        'V': 'pos',
+        'rel_n': 'nType',
+        'rel_adj': 'adjType',
+        'topn': 'nType',
+        'famn': 'nType',
+        'anim': 'nType',
+        'hum': 'nType',
+        'supernat': 'nType',
+        'transport': 'nType',
+        'body': 'nType',
+        'persn': 'nType',
+        'patrn': 'nType',
+        'vn': 'nType',
+        'nloc': 'nType',
+        'obl': 'stemType',
+        'dem': 'proType',
+        'pers': 'proType',
+        'refl': 'proType',
+        'abl': 'case',
+        'acc': 'case',
+        'acc0': 'case',
+        'gen': 'case',
+        'gen2': 'case',
+        'nom': 'case',
+        'dat': 'case',
+        'ins': 'case',
+        'loc': 'case',
+        'ill': 'case',
+        'el': 'case',
+        'egr': 'case',
+        'term': 'case',
+        'car': 'case',
+        'app': 'case',
+        'rcs': 'case',
+        'prol': 'case',
+        'adv': 'case',
+        'dms': 'case',
+        'prs': 'tense',
+        'pst': 'tense',
+        'pst2': 'tense',
+        'fut': 'tense',
+        'pl': 'number',
+        'sg': 'number',
+        'ptcp': 'v_form',
+        'cvb': 'v_form',
+        'neg': 'v_form',
+        'perf': 'ptcp_form',
+        'deb': 'v_form',
+        'lim': 'cnv_form',
+        'simult': 'cnv_form',
+        'res': 'cnv_form',
+        'mon': 'cnv_form',
+        'dur': 'cnv_form',
+        'imp': 'v_form',
+        'prh': 'v_form',
+        'inf': 'v_form',
+        'I': 'conjtype',
+        'II': 'conjtype',
+        'iter': 'v_deriv',
+        'act': 'ptcp_form',
+        'pass': 'ptcp_form',
+        'detr': 'v_deriv',
+        'caus': 'v_deriv',
+        'attr': 'attributivizer',
+        'attr_o': 'attributivizer',
+        'attr_em': 'attributivizer',
+        'attr_tem': 'attributivizer',
+        'intensifier': 'case_c',
+        'poss_comp': 'case_c',
+        'case_comp': 'n_deriv',
+        '1sg': 'poss',
+        '2sg': 'poss',
+        '3sg': 'poss',
+        '1pl': 'poss',
+        '2pl': 'poss',
+        '3pl': 'poss',
+        'comp': 'comp',
+        'ord': 'num_deriv',
+        'coll': 'num_deriv',
+        'distr': 'num_deriv',
+        'subj': 'mood',
+        'abbr': 'additional',
+        'rus': 'additional',
+        'oblin': 'n_deriv',
+        'intr': 'v_subcat',
+        'tr': 'v_subcat',
+        'with_instr': 'v_subcat',
+        'with_dat': 'v_subcat',
+        'with_el': 'v_subcat',
+        'with_ill': 'v_subcat',
+        'with_gen2': 'v_subcat',
+        'impers': 'v_subcat',
+        'with_inf': 'v_subcat'}
+
+    config_dict = {
+        'accidental_word_fields': [],
+        'all_language_search_enabled': True,
+        'ambiguous_analyses': True,
+        'author_metafield': '',
+        'auto_switch_tiers': {},
+        'citation': 'Corpus of Udmurt texts (2021)',
+        'context_header_rtl': False,
+        'corpus_name': 'test_corpus_2',
+        'debug': True,
+        'default_locale': 'en',
+        'default_values': {},
+        'default_view': 'standard',
+        'detect_lemma_queries': False,
+        'display_freq_rank': True,
+        'elastic_url': 'http://127.0.0.1:9200',
+        'fulltext_page_size': 100,
+        'fulltext_search_enabled': True,
+        'fulltext_view_enabled': False,
+        'generate_dictionary': False,
+        'gloss_search_enabled': True,
+        'images': False,
+        'input_format': 'json-gzip',
+        'input_methods': [],
+        'integer_meta_fields': [],
+        'interface_languages': ['en', 'ru'],
+        'keep_lemma_order': False,
+        'keyboards': {},
+        'lang_props': {
+            'udmurt': {
+                'gloss_shortcuts': {
+                    'case': '(nom|gen2?|acc|dat|ins|loc|ill|el|egr|term|prol|car|app|rcs|adv|dms)(\\.(sg|pl))?',
+                    'poss': '(p\\.[123](sg|pl)(\\.acc)?)',
+                    'p.acc': '(p\\.[123](sg|pl)\\.acc)',
+                    'tense': '(pst2?|prs|fut|evid)(\\.[123](sg|pl)?)?',
+                    'pst_any': '(pst(\\(1sg\\)|\\.[123](sg|pl))?)',
+                    'fut_any': '(fut(\\(1sg\\)|\\.[123](sg|pl))?)',
+                    'deriv': '(detr|iter|caus)',
+                    'pers': '[123](sg|pl)?'},
+                'gr_fields_order': [
+                    'nType', 'adjType', 'proType', 'stemType', 'num_deriv', 'v_form', 'attributivizer',
+                    'tense', 'person', 'number', 'case', 'poss'],
+                'gramm_shortcuts': {
+                    'NV': '(N|V)',
+                    'V_nderiv': 'V,~(caus|detr|iter)'}}},
+        'languages': [],
+        'line_plot_meta': ['year'],
+        'max_context_expand': 5,
+        'max_docs_retrieve': 9999,
+        'max_hits_retrieve': 10000,
+        'max_words_in_sentence': 40,
+        'media': False,
+        'media_length': 60,
+        'media_youtube': False,
+        'multiple_choice_fields': {},
+        'negative_search_enabled': True,
+        'query_log': False,
+        'query_timeout': 60,
+        'rtl_languages': [],
+        'search_meta': {
+            'columns': [],
+            'stat_options': []},
+        'search_remove_whitespaces': False,
+        'sentence_meta': [],
+        'start_page_url': '',
+        'transliterations': [],
+        'video': False,
+        'viewable_meta': [],
+        'wf_lowercase': True,
+        'word_fields': ['trans_ru'],
+        'word_search_display_gr': True,
+        'word_table_fields': [],
+        'year_sort_enabled': False}
+
+    gloss_column_list = [
+
+        [
+            {'type': 'gloss', 'value': 'CASE', 'tooltip': 'Any&nbsp;case&nbsp;marker'},
+            {'type': 'gloss', 'value': 'NOM', 'tooltip': 'Nominative case'},
+            {'type': 'gloss', 'value': 'ACC', 'tooltip': 'Marked accusative case'},
+            {'type': 'gloss', 'value': 'ACC.PL', 'tooltip': 'Accusative (plural) case'},
+            {'type': 'gloss', 'value': 'GEN', 'tooltip': 'Genitive case'},
+            {'type': 'gloss', 'value': 'GEN2', 'tooltip': '2nd genitive (Ablative) case'},
+            {'type': 'gloss', 'value': 'DAT', 'tooltip': 'Dative case'},
+            {'type': 'gloss', 'value': 'INS', 'tooltip': 'Instrumental case'},
+            {'type': 'gloss', 'value': 'CAR', 'tooltip': 'Caritive case'},
+            {'type': 'gloss', 'value': 'ADV', 'tooltip': 'Adverbial case'}
+        ],
+
+        [
+            {'type': 'gloss', 'value': 'LOC', 'tooltip': 'Locative case'},
+            {'type': 'gloss', 'value': 'ILL', 'tooltip': 'Illative case'},
+            {'type': 'gloss', 'value': 'EL', 'tooltip': 'Elative case'},
+            {'type': 'gloss', 'value': 'EGR', 'tooltip': 'Egressive case'},
+            {'type': 'gloss', 'value': 'TERM', 'tooltip': 'Terminative case'},
+            {'type': 'gloss', 'value': 'PROL', 'tooltip': 'Prolative case'},
+            {'type': 'gloss', 'value': 'APP', 'tooltip': 'Approximative case'},
+            {'type': 'gloss', 'value': 'RCS', 'tooltip': 'Recessive case'},
+            {'type': 'separator'},
+            {'type': 'gloss', 'value': 'DMS', 'tooltip': '&ldquo;Domus&rdquo; (personal-local marker)'}
+        ],
+        [
+            {'type': 'gloss', 'value': 'PL', 'tooltip': 'Nominal plural'},
+            {'type': 'gloss', 'value': 'ADJ.PL', 'tooltip': 'Adjectival plural'},
+            {'type': 'separator'},
+            {'type': 'gloss', 'value': 'POSS', 'tooltip': 'Any&nbsp;possessive&nbsp;marker'},
+            {'type': 'gloss', 'value': 'P.1SG', 'tooltip': '1sg possessive'},
+            {'type': 'gloss', 'value': 'P.1PL', 'tooltip': '1pl possessive'},
+            {'type': 'gloss', 'value': 'P.2SG', 'tooltip': '2sg possessive'},
+            {'type': 'gloss', 'value': 'P.2PL', 'tooltip': '2pl possessive'},
+            {'type': 'gloss', 'value': 'P.3SG', 'tooltip': '3sg possessive'},
+            {'type': 'gloss', 'value': 'P.3PL', 'tooltip': '3pl possessive'}
+        ],
+
+        [
+            {'type': 'gloss', 'value': 'P.ACC', 'tooltip': 'Any possessive accusative'},
+            {'type': 'gloss', 'value': 'P.1SG.ACC', 'tooltip': 'Accusative 1sg possessive'},
+            {'type': 'gloss', 'value': 'P.1PL.ACC', 'tooltip': 'Accusative 1pl possessive'},
+            {'type': 'gloss', 'value': 'P.2SG.ACC', 'tooltip': 'Accusative 2sg possessive'},
+            {'type': 'gloss', 'value': 'P.2PL.ACC', 'tooltip': 'Accusative 2pl possessive'},
+            {'type': 'gloss', 'value': 'P.3SG.ACC', 'tooltip': 'Accusative 3sg possessive'},
+            {'type': 'gloss', 'value': 'P.3PL.ACC', 'tooltip': 'Accusative 3pl possessive'},
+            {'type': 'separator'},
+            {'type': 'gloss', 'value': 'ATTR', 'tooltip': 'Attributivizer'},
+            {'type': 'gloss', 'value': 'NEG.ATTR', 'tooltip': 'Negative attributivizer'}
+        ],
+
+        [
+            {'type': 'gloss', 'value': 'ORD', 'tooltip': 'Ordinal numeral'},
+            {'type': 'gloss', 'value': 'DISTR', 'tooltip': 'Distributive numeral'},
+            {'type': 'gloss', 'value': 'COLL', 'tooltip': 'Collective numeral'},
+            {'type': 'gloss', 'value': 'PERIOD', 'tooltip': 'Time period (-oj)'},
+            {'type': 'gloss', 'value': 'DELIM', 'tooltip': 'Delimitative (-skən)'},
+            {'type': 'separator'},
+            {'type': 'gloss', 'value': 'VN', 'tooltip': 'Verbal noun (-on)'},
+            {'type': 'gloss', 'value': 'NLOC', 'tooltip': 'Locative noun (-nʼig)'},
+            {'type': 'gloss', 'value': 'COMP', 'tooltip': '&ldquo;Comparative&rdquo;'}
+        ],
+
+        [
+            {'type': 'gloss', 'value': 'DERIV', 'tooltip': 'Any verbal derivation'},
+            {'type': 'gloss', 'value': 'ITER', 'tooltip': 'Iterative'},
+            {'type': 'gloss', 'value': 'CAUS', 'tooltip': 'Causative'},
+            {'type': 'gloss', 'value': 'DETR', 'tooltip': 'Detransitive'},
+            {'type': 'separator'},
+            {'type': 'gloss', 'value': 'PRS.1SG', 'tooltip': 'Present 1sg'},
+            {'type': 'gloss', 'value': 'PRS.1PL', 'tooltip': 'Present 1pl'},
+            {'type': 'gloss', 'value': 'PRS.2SG', 'tooltip': 'Present 2sg'},
+            {'type': 'gloss', 'value': 'PRS.2PL', 'tooltip': 'Present 2pl'},
+            {'type': 'gloss', 'value': 'PRS.3SG', 'tooltip': 'Present 3sg'},
+            {'type': 'gloss', 'value': 'PRS.3PL', 'tooltip': 'Present 3pl'}
+        ],
+
+        [
+            {'type': 'gloss', 'value': 'PST_ANY', 'tooltip': 'Any past marker'},
+            {'type': 'gloss', 'value': 'PST', 'tooltip': 'Past (non-fusional)'},
+            {'type': 'gloss', 'value': 'PST(1SG)', 'tooltip': 'Past 1sg (-i)'},
+            {'type': 'gloss', 'value': 'PST.1SG', 'tooltip': 'Past 1sg (-j)'},
+            {'type': 'gloss', 'value': 'PST.1PL', 'tooltip': 'Past 1pl'},
+            {'type': 'gloss', 'value': 'PST.2SG', 'tooltip': 'Past 2sg'},
+            {'type': 'gloss', 'value': 'PST.2PL', 'tooltip': 'Past 2pl'},
+            {'type': 'gloss', 'value': 'PST.3SG', 'tooltip': 'Past 3sg'},
+            {'type': 'gloss', 'value': 'PST.3PL', 'tooltip': 'Past 3pl'}
+        ],
+
+        [
+            {'type': 'gloss', 'value': 'FUT_ANY', 'tooltip': 'Any future marker'},
+            {'type': 'gloss', 'value': 'FUT', 'tooltip': 'Future (non-fusional)'},
+            {'type': 'gloss', 'value': 'FUT(1SG)', 'tooltip': 'Future 1sg (-i)'},
+            {'type': 'gloss', 'value': 'FUT.1SG', 'tooltip': 'Future 1sg (-j)'},
+            {'type': 'gloss', 'value': 'FUT.1PL', 'tooltip': 'Future 1pl'},
+            {'type': 'gloss', 'value': 'FUT.2SG', 'tooltip': 'Future 2sg'},
+            {'type': 'gloss', 'value': 'FUT.2PL', 'tooltip': 'Future 2pl'},
+            {'type': 'gloss', 'value': 'FUT.3SG', 'tooltip': 'Future 3sg'},
+            {'type': 'gloss', 'value': 'FUT.3PL', 'tooltip': 'Future 3pl'}
+        ],
+
+        [
+            {'type': 'gloss', 'value': 'PST2', 'tooltip': '2nd (evidential) past'},
+            {'type': 'separator'},
+            {'type': 'gloss', 'value': 'PERS', 'tooltip': 'Any person marker'},
+            {'type': 'gloss', 'value': '1', 'tooltip': '1st peron (in 2nd past)'},
+            {'type': 'gloss', 'value': '1SG', 'tooltip': '1st person singular'},
+            {'type': 'gloss', 'value': '1PL', 'tooltip': '1st person plural'},
+            {'type': 'gloss', 'value': '2SG', 'tooltip': '2nd person singular'},
+            {'type': 'gloss', 'value': '2PL', 'tooltip': '2nd person plural'},
+            {'type': 'gloss', 'value': '3SG', 'tooltip': '3rd person singular'},
+            {'type': 'gloss', 'value': '3PL', 'tooltip': '3rd person plural'}
+        ],
+
+        [
+            {'type': 'gloss', 'value': 'CVB', 'tooltip': 'General converb'},
+            {'type': 'gloss', 'value': 'CVB.NEG', 'tooltip': 'General negative converb'},
+            {'type': 'gloss', 'value': 'CVB.DUR', 'tooltip': 'Durative converb'},
+            {'type': 'gloss', 'value': 'RES', 'tooltip': 'Resultative'},
+            {'type': 'gloss', 'value': 'DEB', 'tooltip': 'Debitive'},
+            {'type': 'gloss', 'value': 'CVB.LIM', 'tooltip': 'Limitative converb'},
+            {'type': 'gloss', 'value': 'CVB.MON', 'tooltip': 'Converb in -mon'},
+            {'type': 'gloss', 'value': 'PTCP.PST', 'tooltip': 'Past participle'},
+            {'type': 'gloss', 'value': 'PTCP.ACT', 'tooltip': 'Active participle'},
+            {'type': 'gloss', 'value': 'PTCP.NEG.ACT', 'tooltip': 'Negative active participle'},
+            {'type': 'gloss', 'value': 'PTCP.NEG.PASS', 'tooltip': 'Negative passive participle'}
+        ]
+    ]
+
+    gramm_column_list = [
+
+        [
+            {'type': 'header', 'value': 'Parts of speech'},
+            {'type': 'gramm', 'value': 'N', 'category': 'pos', 'tooltip': 'Noun'},
+            {'type': 'gramm', 'value': 'V', 'category': 'pos', 'tooltip': 'Verb'},
+            {'type': 'gramm', 'value': 'A', 'category': 'pos', 'tooltip': 'Adjective'},
+            {'type': 'gramm', 'value': 'ADV', 'category': 'pos', 'tooltip': 'Adverb'},
+            {'type': 'gramm', 'value': 'PRED', 'category': 'pos', 'tooltip': 'Predicative'},
+            {'type': 'gramm', 'value': 'NUM', 'category': 'pos', 'tooltip': 'Numeral'},
+            {'type': 'gramm', 'value': 'PRO', 'category': 'pos', 'tooltip': 'Pronoun'},
+            {'type': 'gramm', 'value': 'POST', 'category': 'pos', 'tooltip': 'Postposition'},
+            {'type': 'gramm', 'value': 'CONJ', 'category': 'pos', 'tooltip': 'Conjunction'},
+            {'type': 'gramm', 'value': 'PART', 'category': 'pos', 'tooltip': 'Particle'},
+            {'type': 'gramm', 'value': 'INTERJ', 'category': 'pos', 'tooltip': 'Interjection'},
+            {'type': 'gramm', 'value': 'IMIT', 'category': 'pos', 'tooltip': 'Ideophone'}
+        ],
+
+        [
+            {'type': 'header', 'value': 'Lexical classes'},
+            {'type': 'gramm', 'value': 'rel_n', 'category': 'nType', 'tooltip': 'Relational noun'},
+            {'type': 'gramm', 'value': 'rel_adj', 'category': 'adjType', 'tooltip': 'Relational adjective'},
+            {'type': 'gramm', 'value': 'oblin', 'category': 'adjType', 'tooltip': 'Oblinative (-ešʼ)'},
+            {'type': 'gramm', 'value': 'topn', 'category': 'nType', 'tooltip': 'Place name'},
+            {'type': 'gramm', 'value': 'persn', 'category': 'nType', 'tooltip': 'Personal name'},
+            {'type': 'gramm', 'value': 'famn', 'category': 'nType', 'tooltip': 'Last name'},
+            {'type': 'gramm', 'value': 'patrn', 'category': 'nType', 'tooltip': 'Patronymic'},
+            {'type': 'gramm', 'value': 'anim', 'category': 'nType', 'tooltip': 'Animate'},
+            {'type': 'gramm', 'value': 'hum', 'category': 'nType', 'tooltip': 'Human'},
+            {'type': 'gramm', 'value': 'supernat', 'category': 'nType', 'tooltip': 'Supernatural'},
+            {'type': 'gramm', 'value': 'body', 'category': 'nType', 'tooltip': 'Body part'},
+            {'type': 'gramm', 'value': 'transport', 'category': 'nType', 'tooltip': 'Transport'}
+        ],
+
+        [
+            {'type': 'header', 'value': 'Pronoun types'},
+            {'type': 'gramm', 'value': 'dem', 'category': 'proType', 'tooltip': 'Demonstrative pronoun'},
+            {'type': 'gramm', 'value': 'pers', 'category': 'proType', 'tooltip': 'Personal pronoun'},
+            {'type': 'gramm', 'value': 'refl', 'category': 'proType', 'tooltip': 'Reflexive pronoun'},
+            {'type': 'header', 'value': 'Attributivizers'},
+            {'type': 'gramm', 'value': 'attr', 'category': 'attr', 'tooltip': 'Any attributivizer'},
+            {'type': 'gramm', 'value': 'attr_o', 'category': 'attr', 'tooltip': '-o'},
+            {'type': 'gramm', 'value': 'attr_em', 'category': 'attr', 'tooltip': '-jem'},
+            {'type': 'gramm', 'value': 'attr_tem', 'category': 'attr', 'tooltip': 'Negative (-tem)'},
+            {'type': 'header', 'value': 'Numerals'},
+            {'type': 'gramm', 'value': 'ord', 'category': 'nType', 'tooltip': 'Ordinal'},
+            {'type': 'gramm', 'value': 'period', 'category': 'nType', 'tooltip': 'Period (-skən)'},
+            {'type': 'gramm', 'value': 'coll', 'category': 'nType', 'tooltip': 'Collective'},
+            {'type': 'header', 'value': 'Loanwords'},
+            {'type': 'gramm', 'value': 'rus', 'category': 'additional', 'tooltip': 'Russian borrowing'}
+        ],
+
+        [
+            {'type': 'header', 'value': 'Core cases'},
+            {'type': 'gramm', 'value': 'nom', 'category': 'case', 'tooltip': 'Nominative (or unmarked accusative)'},
+            {'type': 'gramm', 'value': 'acc', 'category': 'case', 'tooltip': 'Accusative'},
+            {'type': 'gramm', 'value': 'gen', 'category': 'case', 'tooltip': 'Genitive'},
+            {'type': 'gramm', 'value': 'gen2', 'category': 'case', 'tooltip': '2nd genitive (ablative)'},
+            {'type': 'gramm', 'value': 'dat', 'category': 'case', 'tooltip': 'Dative'},
+            {'type': 'gramm', 'value': 'ins', 'category': 'case', 'tooltip': 'Instrumental'},
+            {'type': 'gramm', 'value': 'car', 'category': 'case', 'tooltip': 'Caritive'},
+            {'type': 'gramm', 'value': 'adv', 'category': 'case', 'tooltip': 'Adverbial'}
+        ],
+
+        [
+            {'type': 'header', 'value': 'Spatial cases'},
+            {'type': 'gramm', 'value': 'loc', 'category': 'case', 'tooltip': 'Locative'},
+            {'type': 'gramm', 'value': 'ill', 'category': 'case', 'tooltip': 'Illative'},
+            {'type': 'gramm', 'value': 'el', 'category': 'case', 'tooltip': 'Elative'},
+            {'type': 'gramm', 'value': 'egr', 'category': 'case', 'tooltip': 'Egressive'},
+            {'type': 'gramm', 'value': 'term', 'category': 'case', 'tooltip': 'Terminative'},
+            {'type': 'gramm', 'value': 'prol', 'category': 'case', 'tooltip': 'Prolative'},
+            {'type': 'gramm', 'value': 'app', 'category': 'case', 'tooltip': 'Approximative'},
+            {'type': 'gramm', 'value': 'rcs', 'category': 'case', 'tooltip': 'Recessive'},
+            {'type': 'separator'},
+            {'type': 'gramm', 'value': 'dms', 'category': 'case',
+             'tooltip': '&ldquo;Domus&rdquo; (personal-local marker)'}
+        ],
+
+        [
+            {'type': 'gramm', 'value': 'obl', 'category': 'stemType', 'tooltip': 'Oblique stem'},
+            {'type': 'gramm', 'value': 'case_comp', 'category': 'add', 'tooltip': 'Case compounding'},
+            {'type': 'header', 'value': 'Possessiveness'},
+            {'type': 'gramm', 'value': '1sg', 'category': 'poss', 'tooltip': '1sg possessive'},
+            {'type': 'gramm', 'value': '1pl', 'category': 'poss', 'tooltip': '1pl possessive'},
+            {'type': 'gramm', 'value': '2sg', 'category': 'poss', 'tooltip': '2sg possessive'},
+            {'type': 'gramm', 'value': '2pl', 'category': 'poss', 'tooltip': '2pl possessive'},
+            {'type': 'gramm', 'value': '3sg', 'category': 'poss', 'tooltip': '3sg possessive'},
+            {'type': 'gramm', 'value': '3pl', 'category': 'poss', 'tooltip': '3pl possessive'},
+            {'type': 'header', 'value': 'Number'},
+            {'type': 'gramm', 'value': 'sg', 'category': 'number', 'tooltip': 'Singular'},
+            {'type': 'gramm', 'value': 'pl', 'category': 'number', 'tooltip': 'Plural'}
+        ],
+
+        [
+            {'type': 'header', 'value': 'Tense/Mood'},
+            {'type': 'gramm', 'value': 'prs', 'category': 'tense', 'tooltip': 'Present tense'},
+            {'type': 'gramm', 'value': 'fut', 'category': 'tense', 'tooltip': 'Future tense'},
+            {'type': 'gramm', 'value': 'pst', 'category': 'tense', 'tooltip': 'Past tense'},
+            {'type': 'gramm', 'value': 'pst2', 'category': 'tense', 'tooltip': 'Evidential past'},
+            {'type': 'gramm', 'value': 'subj', 'category': 'tense', 'tooltip': 'Subjunctive'},
+            {'type': 'header', 'value': 'Verbal derivation'},
+            {'type': 'gramm', 'value': 'iter', 'category': 'deriv', 'tooltip': 'Iterative'},
+            {'type': 'gramm', 'value': 'caus', 'category': 'deriv', 'tooltip': 'Causative'},
+            {'type': 'gramm', 'value': 'detr', 'category': 'deriv', 'tooltip': 'Detransitive'},
+            {'type': 'gramm', 'value': 'vn', 'category': 'deriv', 'tooltip': 'Verbal noun (-on)'},
+            {'type': 'gramm', 'value': 'nloc', 'category': 'deriv', 'tooltip': 'Nomen loci (-onʼnʼig)'}
+        ],
+
+        [
+            {'type': 'header', 'value': 'Non-finite forms'},
+            {'type': 'gramm', 'value': 'inf', 'category': 'nonfin', 'tooltip': 'Infinitive'},
+            {'type': 'gramm', 'value': 'ptcp', 'category': 'nonfin', 'tooltip': 'Any participle'},
+            {'type': 'gramm', 'value': 'ptcp,act', 'category': 'nonfin', 'tooltip': 'Active (-išʼ/-əšʼ)'},
+            {'type': 'gramm', 'value': 'ptcp,act,neg', 'category': 'nonfin', 'tooltip': 'Active negative (-tem)'},
+            {'type': 'gramm', 'value': 'ptcp,pass,neg', 'category': 'nonfin', 'tooltip': 'Passive negative (-mte)'},
+            {'type': 'gramm', 'value': 'ptcp,pst', 'category': 'nonfin', 'tooltip': 'Past participle (-em)'},
+            {'type': 'gramm', 'value': 'res', 'category': 'nonfin', 'tooltip': 'Resultative (-mən)'},
+            {'type': 'gramm', 'value': 'deb', 'category': 'nonfin', 'tooltip': 'Debitive (-ono)'}
+        ],
+
+        [
+            {'type': 'header', 'value': 'Converbs'},
+            {'type': 'gramm', 'value': 'cvb', 'category': 'nonfin', 'tooltip': 'Any converb'},
+            {'type': 'gramm', 'value': 'cvb,dur', 'category': 'nonfin', 'tooltip': 'Durative (-onʼnʼa)'},
+            {'type': 'gramm', 'value': 'cvb,lim', 'category': 'nonfin', 'tooltip': 'Limitative (-čʼožʼ)'},
+            {'type': 'gramm', 'value': 'cvb,simult', 'category': 'nonfin', 'tooltip': 'Simultaneous (-ku)'},
+            {'type': 'gramm', 'value': 'cvb,neg', 'category': 'nonfin', 'tooltip': 'Negative (-tek)'},
+            {'type': 'header', 'value': 'Imperatives'},
+            {'type': 'gramm', 'value': 'imp', 'category': 'nonfin', 'tooltip': 'Imperative'},
+            {'type': 'header', 'value': 'Transitivity'},
+            {'type': 'gramm', 'value': 'tr', 'category': 'vTr', 'tooltip': 'Transitive'},
+            {'type': 'gramm', 'value': 'intr', 'category': 'vTr', 'tooltip': 'Intransitive'},
+            {'type': 'gramm', 'value': 'impers', 'category': 'vTr', 'tooltip': 'Impersonal'}
+        ]
+    ]
+
+    re_sentence_end = (
+
+        re.compile(
+            '[.։。?;？!！]*'
+            '["«»‘’“”„‟『』《》]*'
+            '[.։。?;？!！]+'
+            '["«»‘’“”„‟『』《》]*'
+            '[.։。?;？!！]*'))
+
+    @staticmethod
+    def process_parser_result(
+            sentence_list,
+            tag_set,
+            gloss_set,
+            content,
+            debug_flag):
+        """
+        Compiles sentence data from a single parser result.
+        """
+
+        text_list = []
+        text_length = 0
+
+        token_list = []
+        token_index = 0
+
+        # Processing all extracted paragraphs with their data.
+
+        for (
+                paragraph_index,
+                (paragraph_item_list, check_list, check_flag)) in (
+
+                export_parser_result.iterate_beautiful_soup(
+                    content, debug_flag)):
+
+            if not paragraph_item_list:
+                continue
+
+            # Processing each data item of the paragraph.
+
+            for item in paragraph_item_list:
+
+                variant_list = []
+
+                if isinstance(item, str):
+
+                    # Text part which is not a parsed token.
+
+                    item_str = item
+
+                else:
+
+                    # Parsed token.
+
+                    item_str = item[0]
+                    variant_list = item[1]
+
+                token_str = (
+                    re.sub(r'\s+', ' ', item_str))
+
+                # All whitespace is transformed to single spaces, is skipped if at the start of the sentence
+                # and are not treated as tokens.
+
+                if token_str == ' ':
+
+                    if not token_list:
+                        continue
+
+                    text_list.append(' ')
+                    text_length += 1
+
+                    continue
+
+                # Got outselves a proper token, checking spurious whitespace.
+
+                lead_ws, token_str, trail_ws = (
+                    re.match(r'^(\s*)(.*?)(\s*)$', token_str).groups())
+
+                punct_flag = (
+                        re.search(r'[^\w\s]', token_str) is not None)
+
+                sentence_end_flag = (
+                        Tsakorpus.re_sentence_end.match(token_str) is not None)
+
+                if not token_list:
+                    lead_ws = ''
+
+                if sentence_end_flag:
+                    trail_ws = ''
+
+                if lead_ws:
+                    text_list.append(' ')
+                    text_length += 1
+
+                # Processing the token.
+
+                token_dict = {'wf': token_str}
+
+                token_dict['wtype'] = (
+                    'punct' if punct_flag else 'word')
+
+                token_dict['off_start'] = text_length
+
+                text_list.append(token_str)
+                text_length += len(token_str)
+
+                token_dict['off_end'] = text_length
+
+                if variant_list:
+
+                    analyses_list = []
+
+                    for variant_dict in variant_list:
+
+                        # Checking grammar tags.
+
+                        if 'gr' in variant_dict:
+
+                            analysis_dict = variant_dict.copy()
+
+                            for tag in variant_dict['gr'].split(','):
+
+                                tag = (
+                                    tag.strip())
+
+                                if not tag:
+                                    continue
+
+                                tag_set.add(tag)
+
+                                category = (
+                                    Tsakorpus.tag_category_dict.get(tag, 'undefined'))
+
+                                analysis_dict['gr.' + category] = tag
+
+                            del analysis_dict['gr']
+
+                        else:
+
+                            analysis_dict = variant_dict
+
+                        analyses_list.append(analysis_dict)
+
+                        # Checking glosses.
+
+                        if 'gloss' in variant_dict:
+                            gloss_set.update(
+                                variant_dict['gloss'].split('-'))
+
+                    token_dict['ana'] = analyses_list
+
+                if (token_list or not punct_flag) and not sentence_end_flag:
+                    token_dict['sentence_index'] = token_index
+                    token_index += 1
+
+                token_list.append(token_dict)
+
+                token_dict['next_word'] = len(token_list)
+
+                if trail_ws:
+                    text_list.append(' ')
+                    text_length += 1
+
+                if debug_flag:
+                    log.debug(
+                        '\ntoken_dict:\n' +
+                        pprint.pformat(
+                            token_dict, width=192))
+
+                # Checking if we finished another sentence.
+
+                if sentence_end_flag:
+
+                    for token_dict in token_list:
+
+                        if 'sentence_index' in token_dict:
+                            token_dict['sentence_index_neg'] = (
+                                    token_index - token_dict['sentence_index'])
+
+                    sentence_dict = {
+                        'text': ''.join(text_list),
+                        'words': token_list,
+                        'lang': 0,
+                        'meta': {}}
+
+                    sentence_list.append(
+                        sentence_dict)
+
+                    text_list = []
+                    text_length = 0
+
+                    token_list = []
+                    token_index = 0
+
+                    if debug_flag:
+                        log.debug(
+                            '\nsentence_dict:\n' +
+                            pprint.pformat(
+                                sentence_dict, width=192))
+
+            # Checking if we have paragraph's last sentence.
+
+            if token_list:
+
+                for token_dict in token_list:
+
+                    if 'sentence_index' in token_dict:
+                        token_dict['sentence_index_neg'] = (
+                                token_index - token_dict['sentence_index'])
+
+                sentence_dict = {
+                    'text': ''.join(text_list),
+                    'words': token_list,
+                    'lang': 0,
+                    'meta': {}}
+
+                sentence_list.append(
+                    sentence_dict)
+
+                text_list = []
+                text_length = 0
+
+                token_list = []
+                token_index = 0
+
+                if debug_flag:
+                    log.debug(
+                        '\nsentence_dict:\n' +
+                        pprint.pformat(
+                            sentence_dict, width=192))
+
+    @staticmethod
+    def process_perspective(
+            perspective_id,
+            tag_set,
+            gloss_set,
+            debug_flag=False):
+
+        # Converting perspective's parser results into tsakorpus corpus format.
+        #
+        # Cf. create_valency_data.
+
+        entity_list = (
+
+            DBSession
+
+                .query(
+                dbEntity)
+
+                .filter(
+                dbLexicalEntry.parent_client_id == perspective_id[0],
+                dbLexicalEntry.parent_object_id == perspective_id[1],
+                dbLexicalEntry.marked_for_deletion == False,
+                dbEntity.parent_client_id == dbLexicalEntry.client_id,
+                dbEntity.parent_object_id == dbLexicalEntry.object_id,
+                dbEntity.marked_for_deletion == False,
+                dbPublishingEntity.client_id == dbEntity.client_id,
+                dbPublishingEntity.object_id == dbEntity.object_id,
+                dbPublishingEntity.published == True,
+                dbPublishingEntity.accepted == True)
+
+                .order_by(
+                dbLexicalEntry.created_at,
+                dbLexicalEntry.client_id,
+                dbLexicalEntry.object_id,
+                dbEntity.created_at,
+                dbEntity.client_id,
+                dbEntity.object_id)
+
+                .all())
+
+        # Processing entities.
+
+        entry_dict = collections.defaultdict(dict)
+        entry_list = []
+
+        sentence_list = []
+
+        language_str = None
+
+        for entity in entity_list:
+
+            entry_id = (
+                (entity.parent_client_id, entity.parent_object_id))
+
+            new_entry_flag = (
+                    entry_id not in entry_dict)
+
+            entry_info_dict = entry_dict[entry_id]
+
+            if new_entry_flag:
+                entry_info_dict['parser_result_list'] = []
+                entry_list.append(entry_info_dict)
+
+            if entity.field_id == (674, 5):
+
+                entry_info_dict['comment'] = entity.content
+                continue
+
+            elif not is_subject_for_parsing(entity.content):
+                continue
+
+            parser_result_list = (
+
+                DBSession
+
+                    .query(
+                    dbParserResult,
+                    dbParser.method)
+
+                    .filter(
+                    dbParserResult.entity_client_id == entity.client_id,
+                    dbParserResult.entity_object_id == entity.object_id,
+                    dbParserResult.marked_for_deletion == False,
+                    dbParser.client_id == dbParserResult.parser_client_id,
+                    dbParser.object_id == dbParserResult.parser_object_id,
+                    dbParser.method.in_(
+                        Tsakorpus.parser_language_dict.keys()))
+
+                    .order_by(
+                    dbParserResult.created_at,
+                    dbParserResult.client_id,
+                    dbParserResult.object_id)
+
+                    .all())
+
+            # Processing all parser results of this entity.
+
+            for parser_result, parser_str in parser_result_list:
+
+                current_language_str = (
+                    Tsakorpus.parser_language_dict[parser_str])
+
+                if language_str is None:
+                    language_str = current_language_str
+
+                elif language_str != current_language_str:
+                    raise NotImplementedError
+
+                Tsakorpus.process_parser_result(
+                    sentence_list,
+                    tag_set,
+                    gloss_set,
+                    parser_result.content,
+                    debug_flag)
+
+        return sentence_list, language_str
+
+    @staticmethod
+    def save_configuration(
+            corpus_name,
+            tag_set,
+            gloss_set,
+            language_str,
+            english_title,
+            russian_title,
+            dir_path='.'):
+
+        # Checking categories, saving category configuration.
+
+        extra_tag_set = (
+                tag_set - Tsakorpus.tag_category_dict.keys())
+
+        log.debug(
+            f'\nextra_tag_set:\n{extra_tag_set}')
+
+        tag_category_dict = (
+            Tsakorpus.tag_category_dict.copy())
+
+        for tag in extra_tag_set:
+            tag_category_dict[tag] = 'undefined'
+
+        categories_file_path = (
+            os.path.join(dir_path, 'categories.json'))
+
+        with open(
+                categories_file_path, 'w') as categories_file:
+            json.dump(
+                {language_str: tag_category_dict},
+                categories_file,
+                ensure_ascii=False,
+                indent=2)
+
+        # Compiling and saving corpus configuration.
+
+        config_dict = (
+            Tsakorpus.config_dict.copy())
+
+        config_dict['citation'] = english_title or russian_title
+        config_dict['corpus_name'] = corpus_name
+
+        config_dict['keyboards'] = {
+            language_str: language_str}
+
+        base_gloss_set = (
+
+            set(
+                gloss_info['value']
+                for gloss_info_list in Tsakorpus.gloss_column_list
+                for gloss_info in gloss_info_list
+                if gloss_info['type'] == 'gloss'))
+
+        gloss_column_list = (
+            Tsakorpus.gloss_column_list.copy())
+
+        gloss_column_list.append([
+            {'type': 'gloss', 'value': gloss, 'tooltip': ''}
+            for gloss in gloss_set - base_gloss_set])
+
+        gramm_column_list = (
+            Tsakorpus.gramm_column_list.copy())
+
+        gramm_column_list.append([
+            {'type': 'gramm', 'value': tag, 'category': 'undefined', 'tooltip': ''}
+            for tag in extra_tag_set])
+
+        language_dict = (
+            config_dict['lang_props']['udmurt'])
+
+        language_dict.update({
+            'gloss_selection': {'columns': gloss_column_list},
+            'gramm_selection': {'columns': gramm_column_list}})
+
+        config_dict['lang_props'] = {
+            language_str: language_dict}
+
+        config_dict['languages'] = [
+            language_str]
+
+        corpus_file_path = (
+            os.path.join(dir_path, 'corpus.json'))
+
+        with open(
+                corpus_file_path, 'w') as corpus_file:
+            json.dump(
+                config_dict,
+                corpus_file,
+                ensure_ascii=False,
+                indent=2)
+
+        # Saving English and Russian corpus titles.
+
+        en_file_path = (
+            os.path.join(dir_path, 'corpus-specific-en.txt'))
+
+        with open(en_file_path, 'w') as en_file:
+            en_file.write(
+                f'corpus_title\t{english_title}')
+
+        ru_file_path = (
+            os.path.join(dir_path, 'corpus-specific-ru.txt'))
+
+        with open(ru_file_path, 'w') as ru_file:
+            ru_file.write(
+                f'corpus_title\t{russian_title}')
+
+    @staticmethod
+    def mutate(root, info, **args):
+
+        try:
+
+            client_id = info.context.get('client_id')
+            client = DBSession.query(Client).filter_by(id=client_id).first()
+
+            if not client or client.user_id != 1:
+                return (
+
+                    ResponseError(
+                        message='Not an administrator.'))
+
+            perspective_id = args.get('perspective_id')
+            debug_flag = args.get('debug_flag', False)
+
+            # Processing a single perspective.
+
+            if perspective_id:
+
+                perspective = (
+                    DBSession.query(dbPerspective).filter_by(
+                        client_id=perspective_id[0], object_id=perspective_id[1]).first())
+
+                if not perspective:
+                    return (
+
+                        ResponseError(
+                            message='No perspective {}/{} in the system.'.format(*perspective_id)))
+
+                dictionary = perspective.parent
+
+                locale_id = (
+                        info.context.get('locale_id') or ENGLISH_LOCALE)
+
+                dictionary_name = dictionary.get_translation(locale_id)
+                perspective_name = perspective.get_translation(locale_id)
+
+                full_name = (
+                        dictionary_name + ' \u203a ' + perspective_name)
+
+                if dictionary.marked_for_deletion:
+                    return (
+
+                        ResponseError(message=
+                        'Dictionary \'{}\' {}/{} of perspective \'{}\' {}/{} is deleted.'.format(
+                            dictionary_name,
+                            dictionary.client_id,
+                            dictionary.object_id,
+                            perspective_name,
+                            perspective.client_id,
+                            perspective.object_id)))
+
+                if perspective.marked_for_deletion:
+                    return (
+
+                        ResponseError(message=
+                        'Perspective \'{}\' {}/{} is deleted.'.format(
+                            full_name,
+                            perspective.client_id,
+                            perspective.object_id)))
+
+                tag_set = set()
+                gloss_set = set()
+
+                sentence_list, language_str = (
+
+                    Tsakorpus.process_perspective(
+                        perspective_id,
+                        tag_set,
+                        gloss_set,
+                        debug_flag))
+
+                # Saving corpus data.
+
+                corpus_dict = {
+                    'meta': {},
+                    'sentences': sentence_list}
+
+                with gzip.open('corpus.json.gz', 'wt') as corpus_file:
+
+                    json.dump(
+                        corpus_dict,
+                        corpus_file,
+                        ensure_ascii=False,
+                        indent=2)
+
+                Tsakorpus.save_configuration(
+                    f'{perspective_id[0]}_{perspective_id[1]}',
+                    tag_set,
+                    gloss_set,
+                    language_str,
+                    dictionary.get_translation(ENGLISH_LOCALE),
+                    dictionary.get_translation(RUSSIAN_LOCALE))
+
+                current_datetime = str(datetime.datetime.utcnow())
+                perspective.additional_metadata['uploaded_at'] = current_datetime
+
+                return (
+
+                    Tsakorpus(
+                        triumph=True))
+
+            # Not a single perspective, processing all corpora we can.
+
+            perspective_data_list = (
+
+                DBSession
+
+                    .query(
+                    dbDictionary,
+                    dbPerspective,
+                    dbParser.method)
+
+                    .filter(
+                    dbDictionary.marked_for_deletion == False,
+                    dbPerspective.parent_client_id == dbDictionary.client_id,
+                    dbPerspective.parent_object_id == dbDictionary.object_id,
+                    dbPerspective.marked_for_deletion == False,
+                    dbLexicalEntry.parent_client_id == dbPerspective.client_id,
+                    dbLexicalEntry.parent_object_id == dbPerspective.object_id,
+                    dbLexicalEntry.marked_for_deletion == False,
+                    dbEntity.parent_client_id == dbLexicalEntry.client_id,
+                    dbEntity.parent_object_id == dbLexicalEntry.object_id,
+                    dbEntity.marked_for_deletion == False,
+                    dbEntity.content.op('~*')('.*\.(doc|docx|odt)'),
+                    dbPublishingEntity.client_id == dbEntity.client_id,
+                    dbPublishingEntity.object_id == dbEntity.object_id,
+                    dbPublishingEntity.published == True,
+                    dbPublishingEntity.accepted == True,
+                    dbParserResult.entity_client_id == dbEntity.client_id,
+                    dbParserResult.entity_object_id == dbEntity.object_id,
+                    dbParserResult.marked_for_deletion == False,
+                    dbParser.client_id == dbParserResult.parser_client_id,
+                    dbParser.object_id == dbParserResult.parser_object_id,
+                    dbParser.method.in_(
+                        Tsakorpus.parser_language_dict.keys()))
+
+                    .group_by(
+                    dbDictionary,
+                    dbPerspective,
+                    dbParser.method)
+
+                    .all())
+
+            data_dir_path = 'tsakorpus_data'
+
+            tag_set_dict = collections.defaultdict(set)
+            gloss_set_dict = collections.defaultdict(set)
+
+            language_str_list = []
+
+            for dictionary, perspective, parser_str in perspective_data_list:
+                language_str = (
+                    Tsakorpus.parser_language_dict[parser_str])
+
+                # Getting and saving perspective's corpus data.
+
+                sentence_list, _ = (
+
+                    Tsakorpus.process_perspective(
+                        perspective.id,
+                        tag_set_dict[language_str],
+                        gloss_set_dict[language_str],
+                        debug_flag))
+
+                language_str_list.append(language_str)
+
+                perspective_dir_path = (
+
+                    os.path.join(
+                        data_dir_path,
+                        f'perspective_{perspective.client_id}_{perspective.object_id}'))
+
+                os.makedirs(
+                    perspective_dir_path,
+                    exist_ok=True)
+
+                corpus_file_path = (
+
+                    os.path.join(
+                        perspective_dir_path, 'corpus.json.gz'))
+
+                with gzip.open(corpus_file_path, 'wt') as corpus_file:
+                    corpus_dict = {
+                        'meta': {},
+                        'sentences': sentence_list}
+
+                    json.dump(
+                        corpus_dict,
+                        corpus_file,
+                        ensure_ascii=False,
+                        indent=2)
+
+            # Saving additional corpus data.
+
+            for dictionary, perspective, parser_str in perspective_data_list:
+
+                language_str = (
+                    Tsakorpus.parser_language_dict[parser_str])
+
+                corpus_name = (
+                    f'{perspective.client_id}_{perspective.object_id}')
+
+                perspective_dir_path = (
+
+                    os.path.join(
+                        data_dir_path,
+                        f'perspective_{corpus_name}'))
+
+                english_title = (
+                    dictionary.get_translation(ENGLISH_LOCALE))
+
+                russian_title = (
+                    dictionary.get_translation(RUSSIAN_LOCALE))
+
+                Tsakorpus.save_configuration(
+                    corpus_name,
+                    tag_set_dict[language_str],
+                    gloss_set_dict[language_str],
+                    language_str,
+                    english_title,
+                    russian_title,
+                    dir_path=perspective_dir_path)
+
+                # Showing processed perspective.
+
+                info_str_list = [f'\n{english_title}']
+
+                if russian_title != english_title:
+                    info_str_list.append(f'\n{russian_title}')
+
+                info_str_list.append(
+                    '\nhttp://lingvodoc.ispras.ru/'
+                    f'dictionary/{dictionary.client_id}/{dictionary.object_id}/'
+                    f'perspective/{perspective.client_id}/{perspective.object_id}/'
+                    'view')
+
+                log.debug(
+                    ''.join(info_str_list))
+
+            return (
+
+                Tsakorpus(
+                    triumph=True))
+
+        except Exception as exception:
+
+            traceback_string = (
+
+                ''.join(
+                    traceback.format_exception(
+                        exception, exception, exception.__traceback__))[:-1])
+
+            log.warning('tsakorpus: exception')
+            log.warning(traceback_string)
+
+            transaction.abort()
+
+            return (
+
+                ResponseError(
+                    'Exception:\n' + traceback_string))
+
+
 class MyMutations(graphene.ObjectType):
     """
     Mutation classes.
@@ -7731,7 +8927,7 @@ class MyMutations(graphene.ObjectType):
     bidirectional_links = BidirectionalLinks.Field()
     cognates_summary = CognatesSummary.Field()
     complex_distance = ComplexDistance.Field()
-
+    tsakorpus = Tsakorpus.Field()
 
 schema = graphene.Schema(
     query=Query,
