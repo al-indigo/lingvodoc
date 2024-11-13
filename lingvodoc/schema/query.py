@@ -8649,7 +8649,10 @@ class Tsakorpus(graphene.Mutation):
                     dictionary.get_translation(RUSSIAN_LOCALE))
 
                 current_datetime = str(datetime.datetime.now())
-                perspective.additional_metadata['uploaded_at'] = current_datetime
+                if type(perspective.additional_metadata) is dict:
+                    perspective.additional_metadata['uploaded_at'] = current_datetime
+                else:
+                    perspective.additional_metadata = {'uploaded_at': current_datetime}
                 flag_modified(perspective, 'additional_metadata')
 
                 return (
