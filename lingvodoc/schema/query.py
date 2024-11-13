@@ -3,10 +3,12 @@
 
 import base64
 import collections
+import datetime
 import copy
 import gzip
 import hashlib
 import io
+import json
 import logging
 import math
 import os.path
@@ -92,6 +94,7 @@ from lingvodoc.cache.caching import (
 import lingvodoc.models as models
 
 from lingvodoc.models import (
+    RUSSIAN_LOCALE,
     BaseGroup as dbBaseGroup,
     Client,
     DBSession,
@@ -189,7 +192,8 @@ from lingvodoc.schema.gql_entity import (
     DeleteEntity,
     Entity,
     UpdateEntity,
-    UpdateEntityContent)
+    UpdateEntityContent,
+    is_subject_for_parsing)
 
 from lingvodoc.schema.gql_field import (
     CreateField,
@@ -311,6 +315,7 @@ import lingvodoc.scripts.valency as valency
 import lingvodoc.scripts.docx_import as docx_import
 import lingvodoc.scripts.docx_to_xlsx as docx_to_xlsx
 import lingvodoc.scripts.list_cognates as list_cognates
+import lingvodoc.scripts.export_parser_result as export_parser_result
 
 from lingvodoc.scripts.save_dictionary import save_dictionary as sync_save_dictionary
 
@@ -8643,8 +8648,9 @@ class Tsakorpus(graphene.Mutation):
                     dictionary.get_translation(ENGLISH_LOCALE),
                     dictionary.get_translation(RUSSIAN_LOCALE))
 
-                current_datetime = str(datetime.datetime.utcnow())
+                current_datetime = str(datetime.datetime.now())
                 perspective.additional_metadata['uploaded_at'] = current_datetime
+                flag_modified(perspective, 'additional_metadata')
 
                 return (
 
