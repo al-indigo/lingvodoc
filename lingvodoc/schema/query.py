@@ -8560,9 +8560,9 @@ class Tsakorpus(graphene.Mutation):
 
         data_path = f'{Tsakorpus.dist_path}/data/{corpus_name}'
         rsync_conf = (
-            f'rsync -avz {corpus_file_path} {categories_file_path} {Tsakorpus.hostname}:{data_path}/conf/ ; '
-            f'rsync -avz {en_file_path} {Tsakorpus.hostname}:{data_path}/translations/en/corpus-specific.txt ; '
-            f'rsync -avz {ru_file_path} {Tsakorpus.hostname}:{data_path}/translations/ru/corpus-specific.txt ; ')
+            f' rsync -avz {corpus_file_path} {categories_file_path} {Tsakorpus.hostname}:{data_path}/conf/;'
+            f' rsync -avz {en_file_path} {Tsakorpus.hostname}:{data_path}/translations/en/corpus-specific.txt;'
+            f' rsync -avz {ru_file_path} {Tsakorpus.hostname}:{data_path}/translations/ru/corpus-specific.txt;')
 
         return rsync_conf
 
@@ -8656,16 +8656,23 @@ class Tsakorpus(graphene.Mutation):
 
                 corpus_name = f'{perspective_id[0]}_{perspective_id[1]}'
 
-                # Synchronization
+                # Synchronization with search server
 
                 ssh_cmd = ['ssh', Tsakorpus.hostname]
+                sh_cmd = ['sh', '-c']
                 data_path = f'{Tsakorpus.dist_path}/data/{corpus_name}'
-                config_subdirs = '{conf, translations/{en,ru}}'
-                corpus_subdirs = f'corpus/{corpus_name}'
+
+                config_dirs = (
+                    f' {data_path}/conf'
+                    f' {data_path}/translations/en'
+                    f' {data_path}/translations/ru')
+
+                corpus_dirs = (
+                    f' {data_path}/corpus/{corpus_name}')
 
                 ## First step
 
-                make_dirs = f'mkdir -p {data_path}/{config_subdirs} {data_path}/{corpus_subdirs}'
+                make_dirs = f' mkdir -p {config_dirs} {corpus_dirs}'
                 subprocess.run(ssh_cmd + [make_dirs], check=True)
 
                 ## Second step
@@ -8679,16 +8686,16 @@ class Tsakorpus(graphene.Mutation):
                     dictionary.get_translation(RUSSIAN_LOCALE))
 
                 rsync_corpus = (
-                    f'rsync -av corpus.json.gz {Tsakorpus.hostname}:{data_path}/corpus/{corpus_name}/ ; ')
+                    f' rsync -av corpus.json.gz {Tsakorpus.hostname}:{data_path}/corpus/{corpus_name}/;')
 
-                subprocess.run(rsync_conf.split() + rsync_corpus.split(), check=True)
+                subprocess.run(sh_cmd + [rsync_conf + rsync_corpus], check=True)
 
                 ## Third step
 
-                indexing = f'cd {Tsakorpus.dist_path}/indexator; python3 indexator.py --corpus-root {data_path}; '
+                indexing = f' cd {Tsakorpus.dist_path}/indexator; python3 indexator.py --corpus-root {data_path};'
                 add_location = (
-                    f'echo "Use tsakorpus {corpus_name}" >> {Tsakorpus.dist_path}/data/locations_list; '
-                    f'sudo systemctl reload apache2; ')
+                    f' echo "Use tsakorpus {corpus_name}" >> {Tsakorpus.dist_path}/data/locations_list;'
+                    f' sudo systemctl reload apache2;')
 
                 subprocess.run(ssh_cmd + [indexing + add_location], check=True)
 
