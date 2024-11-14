@@ -18,6 +18,7 @@ import random
 import re
 import shutil
 import string
+import subprocess
 import tempfile
 import time
 import traceback
@@ -7630,6 +7631,9 @@ class Tsakorpus(graphene.Mutation):
 
     triumph = graphene.Boolean()
 
+    hostname = 'ubuntu@83.149.198.78'
+    dist_path = '/home/ubuntu/tsakorpus'
+
     parser_language_dict = {
         'timarkh_udm': 'udmurt',
         'timarkh_erzya': 'erzya',
@@ -8552,6 +8556,16 @@ class Tsakorpus(graphene.Mutation):
             ru_file.write(
                 f'corpus_title\t{russian_title}')
 
+        # Uploading configs to server
+
+        data_path = f'{Tsakorpus.dist_path}/data/{corpus_name}'
+        rsync_conf = (
+            f'rsync -avz {corpus_file_path} {categories_file_path} {Tsakorpus.hostname}:{data_path}/conf/ ; '
+            f'rsync -avz {en_file_path} {Tsakorpus.hostname}:{data_path}/translations/en/corpus-specific.txt ; '
+            f'rsync -avz {ru_file_path} {Tsakorpus.hostname}:{data_path}/translations/ru/corpus-specific.txt ; ')
+
+        return rsync_conf
+
     @staticmethod
     def mutate(root, info, **args):
 
@@ -8640,19 +8654,53 @@ class Tsakorpus(graphene.Mutation):
                         ensure_ascii=False,
                         indent=2)
 
-                Tsakorpus.save_configuration(
-                    f'{perspective_id[0]}_{perspective_id[1]}',
+                corpus_name = f'{perspective_id[0]}_{perspective_id[1]}'
+
+                # Synchronization
+
+                ssh_cmd = ['ssh', Tsakorpus.hostname]
+                data_path = f'{Tsakorpus.dist_path}/data/{corpus_name}'
+                config_subdirs = '{conf, translations/{en,ru}}'
+                corpus_subdirs = f'corpus/{corpus_name}'
+
+                ## First step
+
+                make_dirs = f'mkdir -p {data_path}/{config_subdirs} {data_path}/{corpus_subdirs}'
+                subprocess.run(ssh_cmd + [make_dirs], check=True)
+
+                ## Second step
+
+                rsync_conf = Tsakorpus.save_configuration(
+                    corpus_name,
                     tag_set,
                     gloss_set,
                     language_str,
                     dictionary.get_translation(ENGLISH_LOCALE),
                     dictionary.get_translation(RUSSIAN_LOCALE))
 
+                rsync_corpus = (
+                    f'rsync -av corpus.json.gz {Tsakorpus.hostname}:{data_path}/corpus/{corpus_name}/ ; ')
+
+                subprocess.run(rsync_conf.split() + rsync_corpus.split(), check=True)
+
+                ## Third step
+
+                indexing = f'cd {Tsakorpus.dist_path}/indexator; python3 indexator.py --corpus-root {data_path}; '
+                add_location = (
+                    f'echo "Use tsakorpus {corpus_name}" >> {Tsakorpus.dist_path}/data/locations_list; '
+                    f'sudo systemctl reload apache2; ')
+
+                subprocess.run(ssh_cmd + [indexing + add_location], check=True)
+
+                # Update uploading date
+
                 current_datetime = str(datetime.datetime.now())
+
                 if type(perspective.additional_metadata) is dict:
                     perspective.additional_metadata['uploaded_at'] = current_datetime
                 else:
                     perspective.additional_metadata = {'uploaded_at': current_datetime}
+
                 flag_modified(perspective, 'additional_metadata')
 
                 return (
