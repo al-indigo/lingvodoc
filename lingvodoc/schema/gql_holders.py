@@ -995,6 +995,7 @@ class Metadata(graphene.ObjectType):
 
     parallel = graphene.Boolean()
 
+    uploaded_at = graphene.String()
 
 metadata_key_set = {
 
