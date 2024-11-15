@@ -8692,11 +8692,14 @@ class Tsakorpus(graphene.Mutation):
 
                 ## Third step
 
-                indexing = f' cd {Tsakorpus.dist_path}/indexator; python3 indexator.py --corpus-root {data_path};'
+                indexing = f' cd {Tsakorpus.dist_path}/indexator; python3 indexator.py -y Y --corpus-root {data_path};'
+                location = f"Use tsakorpus {corpus_name}"
+                location_list = f'{Tsakorpus.dist_path}/data/locations_list'
                 add_location = (
-                    f' echo "Use tsakorpus {corpus_name}" >> {Tsakorpus.dist_path}/data/locations_list;'
-                    f' sudo systemctl reload apache2;')
-
+                    f' sort -o {location_list} -u {location_list};'
+                    f'! grep -q "{location}" {location_list} &&'
+                    f' echo "{location}" >> {location_list} &&'
+                    f' sudo systemctl reload apache2 || true;')
                 subprocess.run(ssh_cmd + [indexing + add_location], check=True)
 
                 # Update uploading date
