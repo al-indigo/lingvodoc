@@ -8640,6 +8640,11 @@ class Tsakorpus(graphene.Mutation):
                         gloss_set,
                         debug_flag))
 
+                if not len(sentence_list):
+                    return (
+                        Tsakorpus(
+                            triumph=False))
+
                 # Saving corpus data.
 
                 corpus_dict = {
