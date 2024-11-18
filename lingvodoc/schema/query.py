@@ -8347,27 +8347,27 @@ class Tsakorpus(graphene.Mutation):
             DBSession
 
                 .query(
-                dbEntity)
+                    dbEntity)
 
                 .filter(
-                dbLexicalEntry.parent_client_id == perspective_id[0],
-                dbLexicalEntry.parent_object_id == perspective_id[1],
-                dbLexicalEntry.marked_for_deletion == False,
-                dbEntity.parent_client_id == dbLexicalEntry.client_id,
-                dbEntity.parent_object_id == dbLexicalEntry.object_id,
-                dbEntity.marked_for_deletion == False,
-                dbPublishingEntity.client_id == dbEntity.client_id,
-                dbPublishingEntity.object_id == dbEntity.object_id,
-                dbPublishingEntity.published == True,
-                dbPublishingEntity.accepted == True)
+                    dbLexicalEntry.parent_client_id == perspective_id[0],
+                    dbLexicalEntry.parent_object_id == perspective_id[1],
+                    dbLexicalEntry.marked_for_deletion == False,
+                    dbEntity.parent_client_id == dbLexicalEntry.client_id,
+                    dbEntity.parent_object_id == dbLexicalEntry.object_id,
+                    dbEntity.marked_for_deletion == False,
+                    dbPublishingEntity.client_id == dbEntity.client_id,
+                    dbPublishingEntity.object_id == dbEntity.object_id,
+                    dbPublishingEntity.published == True,
+                    dbPublishingEntity.accepted == True)
 
                 .order_by(
-                dbLexicalEntry.created_at,
-                dbLexicalEntry.client_id,
-                dbLexicalEntry.object_id,
-                dbEntity.created_at,
-                dbEntity.client_id,
-                dbEntity.object_id)
+                    dbLexicalEntry.created_at,
+                    dbLexicalEntry.client_id,
+                    dbLexicalEntry.object_id,
+                    dbEntity.created_at,
+                    dbEntity.client_id,
+                    dbEntity.object_id)
 
                 .all())
 
@@ -8407,22 +8407,22 @@ class Tsakorpus(graphene.Mutation):
                 DBSession
 
                     .query(
-                    dbParserResult,
-                    dbParser.method)
+                        dbParserResult,
+                        dbParser.method)
 
                     .filter(
-                    dbParserResult.entity_client_id == entity.client_id,
-                    dbParserResult.entity_object_id == entity.object_id,
-                    dbParserResult.marked_for_deletion == False,
-                    dbParser.client_id == dbParserResult.parser_client_id,
-                    dbParser.object_id == dbParserResult.parser_object_id,
-                    dbParser.method.in_(
-                        Tsakorpus.parser_language_dict.keys()))
+                        dbParserResult.entity_client_id == entity.client_id,
+                        dbParserResult.entity_object_id == entity.object_id,
+                        dbParserResult.marked_for_deletion == False,
+                        dbParser.client_id == dbParserResult.parser_client_id,
+                        dbParser.object_id == dbParserResult.parser_object_id,
+                        dbParser.method.in_(
+                            Tsakorpus.parser_language_dict.keys()))
 
                     .order_by(
-                    dbParserResult.created_at,
-                    dbParserResult.client_id,
-                    dbParserResult.object_id)
+                        dbParserResult.created_at,
+                        dbParserResult.client_id,
+                        dbParserResult.object_id)
 
                     .all())
 
