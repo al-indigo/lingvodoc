@@ -8355,7 +8355,7 @@ class Tsakorpus(graphene.Mutation):
 
                 .one())
 
-        corpus_uploaded_at = metadata.get('uploaded_at') if type(metadata) is dict else None
+        corpus_uploaded_at = metadata[0].get('uploaded_at') if type(metadata[0]) is dict else None
 
         entity_list = (
 
@@ -8433,15 +8433,17 @@ class Tsakorpus(graphene.Mutation):
                         dbParser.method.in_(
                             Tsakorpus.parser_language_dict.keys())))
 
-            parser_result_updated_last = (
+            parser_result_updated_last, _ = (
                 parser_result_query
 
                     .order_by(
-                        dbParserResult.updated_at)
+                        dbParserResult.updated_at.desc())
 
-                    .last())
+                    .first())
 
-            if not force and corpus_uploaded_at and parser_result_updated_last <= corpus_uploaded_at:
+            if (not force and
+                    type(parser_result_updated_last.updated_at) == type(corpus_uploaded_at) and
+                    parser_result_updated_last.updated_at <= corpus_uploaded_at):
                 return None, None
 
             parser_result_list = (
@@ -8747,7 +8749,7 @@ class Tsakorpus(graphene.Mutation):
 
                 # Update uploading date
 
-                current_datetime = str(datetime.datetime.utcnow())
+                current_datetime = datetime.datetime.utcnow().timestamp()
 
                 if type(perspective.additional_metadata) is dict:
                     perspective.additional_metadata['uploaded_at'] = current_datetime
