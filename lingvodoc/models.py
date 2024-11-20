@@ -2637,6 +2637,7 @@ class ParserResult(
     Base):
 
     arguments = Column(JSONB)
+    updated_at = Column(EpochType, default=datetime.datetime.utcnow, nullable=False)
     content = Column(UnicodeText)
 
 

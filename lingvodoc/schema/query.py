@@ -7627,6 +7627,7 @@ class Tsakorpus(graphene.Mutation):
     class Arguments:
 
         perspective_id = LingvodocID()
+        force = graphene.Boolean()
         debug_flag = graphene.Boolean()
 
     triumph = graphene.Boolean()
@@ -8336,38 +8337,102 @@ class Tsakorpus(graphene.Mutation):
             perspective_id,
             tag_set,
             gloss_set,
+            force=False,
             debug_flag=False):
 
         # Converting perspective's parser results into tsakorpus corpus format.
         #
         # Cf. create_valency_data.
 
-        entity_list = (
+        metadata = (
+            DBSession
+                .query(
+                    dbPerspective.additional_metadata)
+
+                .filter(
+                    dbPerspective.id == perspective_id,
+                    dbPerspective.marked_for_deletion == False)
+
+                .one())
+
+        corpus_uploaded_at = metadata[0].get('uploaded_at') if type(metadata[0]) is dict else None
+
+        entity_cte = (
 
             DBSession
 
                 .query(
-                dbEntity)
+                    dbEntity)
 
                 .filter(
-                dbLexicalEntry.parent_client_id == perspective_id[0],
-                dbLexicalEntry.parent_object_id == perspective_id[1],
-                dbLexicalEntry.marked_for_deletion == False,
-                dbEntity.parent_client_id == dbLexicalEntry.client_id,
-                dbEntity.parent_object_id == dbLexicalEntry.object_id,
-                dbEntity.marked_for_deletion == False,
-                dbPublishingEntity.client_id == dbEntity.client_id,
-                dbPublishingEntity.object_id == dbEntity.object_id,
-                dbPublishingEntity.published == True,
-                dbPublishingEntity.accepted == True)
+                    dbLexicalEntry.parent_client_id == perspective_id[0],
+                    dbLexicalEntry.parent_object_id == perspective_id[1],
+                    dbEntity.parent_client_id == dbLexicalEntry.client_id,
+                    dbEntity.parent_object_id == dbLexicalEntry.object_id,
+                    dbPublishingEntity.client_id == dbEntity.client_id,
+                    dbPublishingEntity.object_id == dbEntity.object_id,
+                    dbPublishingEntity.published == True,
+                    dbPublishingEntity.accepted == True)
+
+                .cte())
+
+        entity_with_deleted = (
+            DBSession
+                .query(
+                    entity_cte.c.client_id,
+                    entity_cte.c.object_id)
+                .all())
+
+        parser_result_updated_latest = 0.0
+
+        # Find latest updating timestamp within all the attached (even deleted) parserresults
+        for client_id, object_id in entity_with_deleted:
+
+            parser_result_updated_last = (
+
+                DBSession
+
+                    .query(
+                        dbParserResult.updated_at)
+
+                    .filter(
+                        dbParserResult.entity_client_id == client_id,
+                        dbParserResult.entity_object_id == object_id,
+                        dbParser.client_id == dbParserResult.parser_client_id,
+                        dbParser.object_id == dbParserResult.parser_object_id,
+                        dbParser.method.in_(
+                            Tsakorpus.parser_language_dict.keys()))
+
+                    .order_by(
+                        dbParserResult.updated_at.desc())
+
+                    .first())
+
+            if parser_result_updated_last:
+                parser_result_updated_latest = max(parser_result_updated_latest, parser_result_updated_last[0])
+
+        if (not force and
+                type(parser_result_updated_latest) == type(corpus_uploaded_at) and
+                parser_result_updated_latest <= corpus_uploaded_at):
+            return None, None
+
+        entity_list = (
+            DBSession
+                .query(entity_cte)
+
+                .filter(
+                    entity_cte.c.marked_for_deletion == False,
+                    dbLexicalEntry.client_id == entity_cte.c.parent_client_id,
+                    dbLexicalEntry.object_id == entity_cte.c.parent_object_id,
+                    dbLexicalEntry.marked_for_deletion == False)
 
                 .order_by(
-                dbLexicalEntry.created_at,
-                dbLexicalEntry.client_id,
-                dbLexicalEntry.object_id,
-                dbEntity.created_at,
-                dbEntity.client_id,
-                dbEntity.object_id)
+                    dbLexicalEntry.created_at,
+                    dbLexicalEntry.client_id,
+                    dbLexicalEntry.object_id,
+                    entity_cte.c.created_at,
+                    entity_cte.c.client_id,
+                    entity_cte.c.object_id)
 
                 .all())
 
@@ -8394,7 +8459,7 @@ class Tsakorpus(graphene.Mutation):
                 entry_info_dict['parser_result_list'] = []
                 entry_list.append(entry_info_dict)
 
-            if entity.field_id == (674, 5):
+            if (entity.field_client_id, entity.field_object_id) == (674, 5):
 
                 entry_info_dict['comment'] = entity.content
                 continue
@@ -8407,22 +8472,22 @@ class Tsakorpus(graphene.Mutation):
                 DBSession
 
                     .query(
-                    dbParserResult,
-                    dbParser.method)
+                        dbParserResult,
+                        dbParser.method)
 
                     .filter(
-                    dbParserResult.entity_client_id == entity.client_id,
-                    dbParserResult.entity_object_id == entity.object_id,
-                    dbParserResult.marked_for_deletion == False,
-                    dbParser.client_id == dbParserResult.parser_client_id,
-                    dbParser.object_id == dbParserResult.parser_object_id,
-                    dbParser.method.in_(
-                        Tsakorpus.parser_language_dict.keys()))
+                        dbParserResult.entity_client_id == entity.client_id,
+                        dbParserResult.entity_object_id == entity.object_id,
+                        dbParserResult.marked_for_deletion == False,
+                        dbParser.client_id == dbParserResult.parser_client_id,
+                        dbParser.object_id == dbParserResult.parser_object_id,
+                        dbParser.method.in_(
+                            Tsakorpus.parser_language_dict.keys()))
 
                     .order_by(
-                    dbParserResult.created_at,
-                    dbParserResult.client_id,
-                    dbParserResult.object_id)
+                        dbParserResult.created_at,
+                        dbParserResult.client_id,
+                        dbParserResult.object_id)
 
                     .all())
 
@@ -8581,6 +8646,7 @@ class Tsakorpus(graphene.Mutation):
                         message='Not an administrator.'))
 
             perspective_id = args.get('perspective_id')
+            force = args.get('force', False)
             debug_flag = args.get('debug_flag', False)
 
             # Processing a single perspective.
@@ -8638,9 +8704,15 @@ class Tsakorpus(graphene.Mutation):
                         perspective_id,
                         tag_set,
                         gloss_set,
+                        force,
                         debug_flag))
 
-                if not len(sentence_list):
+                if sentence_list is None:
+                    return (
+                        Tsakorpus(
+                            triumph=True))
+
+                elif not len(sentence_list):
                     return (
                         Tsakorpus(
                             triumph=False))
@@ -8709,7 +8781,7 @@ class Tsakorpus(graphene.Mutation):
 
                 # Update uploading date
 
-                current_datetime = str(datetime.datetime.now())
+                current_datetime = datetime.datetime.now(datetime.timezone.utc).timestamp()
 
                 if type(perspective.additional_metadata) is dict:
                     perspective.additional_metadata['uploaded_at'] = current_datetime
@@ -8730,38 +8802,38 @@ class Tsakorpus(graphene.Mutation):
                 DBSession
 
                     .query(
-                    dbDictionary,
-                    dbPerspective,
-                    dbParser.method)
+                        dbDictionary,
+                        dbPerspective,
+                        dbParser.method)
 
                     .filter(
-                    dbDictionary.marked_for_deletion == False,
-                    dbPerspective.parent_client_id == dbDictionary.client_id,
-                    dbPerspective.parent_object_id == dbDictionary.object_id,
-                    dbPerspective.marked_for_deletion == False,
-                    dbLexicalEntry.parent_client_id == dbPerspective.client_id,
-                    dbLexicalEntry.parent_object_id == dbPerspective.object_id,
-                    dbLexicalEntry.marked_for_deletion == False,
-                    dbEntity.parent_client_id == dbLexicalEntry.client_id,
-                    dbEntity.parent_object_id == dbLexicalEntry.object_id,
-                    dbEntity.marked_for_deletion == False,
-                    dbEntity.content.op('~*')('.*\.(doc|docx|odt)'),
-                    dbPublishingEntity.client_id == dbEntity.client_id,
-                    dbPublishingEntity.object_id == dbEntity.object_id,
-                    dbPublishingEntity.published == True,
-                    dbPublishingEntity.accepted == True,
-                    dbParserResult.entity_client_id == dbEntity.client_id,
-                    dbParserResult.entity_object_id == dbEntity.object_id,
-                    dbParserResult.marked_for_deletion == False,
-                    dbParser.client_id == dbParserResult.parser_client_id,
-                    dbParser.object_id == dbParserResult.parser_object_id,
-                    dbParser.method.in_(
-                        Tsakorpus.parser_language_dict.keys()))
+                        dbDictionary.marked_for_deletion == False,
+                        dbPerspective.parent_client_id == dbDictionary.client_id,
+                        dbPerspective.parent_object_id == dbDictionary.object_id,
+                        dbPerspective.marked_for_deletion == False,
+                        dbLexicalEntry.parent_client_id == dbPerspective.client_id,
+                        dbLexicalEntry.parent_object_id == dbPerspective.object_id,
+                        dbLexicalEntry.marked_for_deletion == False,
+                        dbEntity.parent_client_id == dbLexicalEntry.client_id,
+                        dbEntity.parent_object_id == dbLexicalEntry.object_id,
+                        dbEntity.marked_for_deletion == False,
+                        dbEntity.content.op('~*')('.*\.(doc|docx|odt)'),
+                        dbPublishingEntity.client_id == dbEntity.client_id,
+                        dbPublishingEntity.object_id == dbEntity.object_id,
+                        dbPublishingEntity.published == True,
+                        dbPublishingEntity.accepted == True,
+                        dbParserResult.entity_client_id == dbEntity.client_id,
+                        dbParserResult.entity_object_id == dbEntity.object_id,
+                        dbParserResult.marked_for_deletion == False,
+                        dbParser.client_id == dbParserResult.parser_client_id,
+                        dbParser.object_id == dbParserResult.parser_object_id,
+                        dbParser.method.in_(
+                            Tsakorpus.parser_language_dict.keys()))
 
                     .group_by(
-                    dbDictionary,
-                    dbPerspective,
-                    dbParser.method)
+                        dbDictionary,
+                        dbPerspective,
+                        dbParser.method)
 
                     .all())
 
@@ -8784,6 +8856,7 @@ class Tsakorpus(graphene.Mutation):
                         perspective.id,
                         tag_set_dict[language_str],
                         gloss_set_dict[language_str],
+                        force,
                         debug_flag))
 
                 language_str_list.append(language_str)
