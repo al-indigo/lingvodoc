@@ -8357,7 +8357,7 @@ class Tsakorpus(graphene.Mutation):
 
         corpus_uploaded_at = metadata[0].get('uploaded_at') if type(metadata[0]) is dict else None
 
-        entity_list = (
+        entity_cte = (
 
             DBSession
 
@@ -8367,22 +8367,72 @@ class Tsakorpus(graphene.Mutation):
                 .filter(
                     dbLexicalEntry.parent_client_id == perspective_id[0],
                     dbLexicalEntry.parent_object_id == perspective_id[1],
-                    dbLexicalEntry.marked_for_deletion == False,
                     dbEntity.parent_client_id == dbLexicalEntry.client_id,
                     dbEntity.parent_object_id == dbLexicalEntry.object_id,
-                    dbEntity.marked_for_deletion == False,
                     dbPublishingEntity.client_id == dbEntity.client_id,
                     dbPublishingEntity.object_id == dbEntity.object_id,
                     dbPublishingEntity.published == True,
                     dbPublishingEntity.accepted == True)
 
+                .cte())
+
+        entity_with_deleted = (
+            DBSession
+                .query(
+                    entity_cte.c.client_id,
+                    entity_cte.c.object_id)
+                .all())
+
+        parser_result_updated_latest = 0.0
+
+        # Find latest updating timestamp within all the attached (even deleted) parserresults
+        for client_id, object_id in entity_with_deleted:
+
+            parser_result_updated_last = (
+
+                DBSession
+
+                    .query(
+                        dbParserResult.updated_at)
+
+                    .filter(
+                        dbParserResult.entity_client_id == client_id,
+                        dbParserResult.entity_object_id == object_id,
+                        dbParser.client_id == dbParserResult.parser_client_id,
+                        dbParser.object_id == dbParserResult.parser_object_id,
+                        dbParser.method.in_(
+                            Tsakorpus.parser_language_dict.keys()))
+
+                    .order_by(
+                        dbParserResult.updated_at.desc())
+
+                    .first())
+
+            if parser_result_updated_last:
+                parser_result_updated_latest = max(parser_result_updated_latest, parser_result_updated_last[0])
+
+        if (not force and
+                type(parser_result_updated_latest) == type(corpus_uploaded_at) and
+                parser_result_updated_latest <= corpus_uploaded_at):
+            return None, None
+
+        entity_list = (
+            DBSession
+                .query(entity_cte)
+
+                .filter(
+                    entity_cte.c.marked_for_deletion == False,
+                    dbLexicalEntry.client_id == entity_cte.c.parent_client_id,
+                    dbLexicalEntry.object_id == entity_cte.c.parent_object_id,
+                    dbLexicalEntry.marked_for_deletion == False)
+
                 .order_by(
                     dbLexicalEntry.created_at,
                     dbLexicalEntry.client_id,
                     dbLexicalEntry.object_id,
-                    dbEntity.created_at,
-                    dbEntity.client_id,
-                    dbEntity.object_id)
+                    entity_cte.c.created_at,
+                    entity_cte.c.client_id,
+                    entity_cte.c.object_id)
 
                 .all())
 
@@ -8409,7 +8459,7 @@ class Tsakorpus(graphene.Mutation):
                 entry_info_dict['parser_result_list'] = []
                 entry_list.append(entry_info_dict)
 
-            if entity.field_id == (674, 5):
+            if (entity.field_client_id, entity.field_object_id) == (674, 5):
 
                 entry_info_dict['comment'] = entity.content
                 continue
@@ -8417,7 +8467,7 @@ class Tsakorpus(graphene.Mutation):
             elif not is_subject_for_parsing(entity.content):
                 continue
 
-            parser_result_query = (
+            parser_result_list = (
 
                 DBSession
 
@@ -8428,30 +8478,11 @@ class Tsakorpus(graphene.Mutation):
                     .filter(
                         dbParserResult.entity_client_id == entity.client_id,
                         dbParserResult.entity_object_id == entity.object_id,
+                        dbParserResult.marked_for_deletion == False,
                         dbParser.client_id == dbParserResult.parser_client_id,
                         dbParser.object_id == dbParserResult.parser_object_id,
                         dbParser.method.in_(
-                            Tsakorpus.parser_language_dict.keys())))
-
-            parser_result_updated_last, _ = (
-                parser_result_query
-
-                    .order_by(
-                        dbParserResult.updated_at.desc())
-
-                    .first())
-
-            if (not force and
-                    type(parser_result_updated_last.updated_at) == type(corpus_uploaded_at) and
-                    parser_result_updated_last.updated_at <= corpus_uploaded_at):
-                return None, None
-            A()
-
-            parser_result_list = (
-                parser_result_query
-
-                    .filter(
-                        dbParserResult.marked_for_deletion == False)
+                            Tsakorpus.parser_language_dict.keys()))
 
                     .order_by(
                         dbParserResult.created_at,
@@ -8750,7 +8781,7 @@ class Tsakorpus(graphene.Mutation):
 
                 # Update uploading date
 
-                current_datetime = datetime.datetime.utcnow().timestamp()
+                current_datetime = datetime.datetime.now(datetime.timezone.utc).timestamp()
 
                 if type(perspective.additional_metadata) is dict:
                     perspective.additional_metadata['uploaded_at'] = current_datetime
