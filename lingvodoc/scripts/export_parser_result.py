@@ -12,6 +12,7 @@ import xml.dom as dom
 import xml.etree.ElementTree as ElementTree
 
 import bs4
+from pdb import set_trace as A
 
 # Setting up logging.
 log = logging.getLogger(__name__)
@@ -304,7 +305,7 @@ def process_paragraph_bs(
 
         if element.name == 'span':
 
-            class_list = element.attrs['class']
+            class_list = element.attrs.get('class')
 
             text_list = []
 
@@ -329,10 +330,11 @@ def process_paragraph_bs(
                     text_list.append(content.get_text())
                     continue
 
-                sub_class_list = content.attrs['class']
+                sub_class_list = content.attrs.get('class')
 
-                if ('result' not in sub_class_list and
-                    content.attrs.keys() != {'class', 'id'}):
+                if (sub_class_list is not None and
+                        'result' not in sub_class_list and
+                        content.attrs.keys() != {'class', 'id'}):
                     
                     log.debug(
                         f'sub_class_list: {sub_class_list}'
@@ -360,8 +362,9 @@ def process_paragraph_bs(
 
             result_text = ''.join(text_list)
 
-            if ('verified' not in class_list or
-                len(approved_list) != 1):
+            if (class_list is not None and
+                    'verified' not in class_list or
+                    len(approved_list) != 1):
 
                 check_flag = True
                 check_list.append([result_text])

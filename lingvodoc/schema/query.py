@@ -8445,6 +8445,7 @@ class Tsakorpus(graphene.Mutation):
                     type(parser_result_updated_last.updated_at) == type(corpus_uploaded_at) and
                     parser_result_updated_last.updated_at <= corpus_uploaded_at):
                 return None, None
+            A()
 
             parser_result_list = (
                 parser_result_query
