@@ -7640,7 +7640,18 @@ class Tsakorpus(graphene.Mutation):
         'timarkh_erzya': 'erzya',
         'timarkh_meadow_mari': 'meadow_mari',
         'timarkh_moksha': 'moksha',
-        'timarkh_komi_zyryan': 'komi_zyryan'}
+        'timarkh_komi_zyryan': 'komi_zyryan',
+        'apertium_tat_rus': 'tatar_russian',
+        'apertium_kaz_rus': 'kazakh_russian',
+        'apertium_sah': 'yakut',
+        'apertium_bak_tat': 'bashkir_tatar',
+        'apertium_bak': 'bashkir',
+        'apertium_rus': 'russian',
+        'apertium_eng': 'english',
+        'apertium_tuv': 'tuvan',
+        'apertium_hye': 'armenian',
+        'hfst_kalmyk': 'kalmyk',
+        'hfst_ancient_kalmyk': 'ancient_kalmyk'}
 
     tag_category_dict = {
         '1': 'pers',
