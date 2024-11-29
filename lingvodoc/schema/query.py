@@ -8969,6 +8969,104 @@ class Tsakorpus(graphene.Mutation):
                     'Exception:\n' + traceback_string))
 
 
+class UpdateMarkups(graphene.Mutation):
+    """
+    curl 'https://lingvodoc.ispras.ru/api/graphql' \
+    -H 'Content-Type: application/json' \
+    -H 'Cookie: locale_id=2; auth_tkt=$TOKEN!userid_type:int; client_id=$ID' \
+    --data-raw '{ "operationName": "update_markups", "variables": {"result": [[1,2]]}, \
+    "query": "mutation updateMarkupsMutation($result: [[Int]]!, groups_to_delete: [Int])" \
+    { update_markups(result: $result, groups_to_delete: $groups_to_delete) { triumph }}"}'
+
+    #! set perspectiveId to concrete LingvodocID for one perspective's positions reordering,
+    #! otherwise all perspectives with duplicated columns positions will be processed
+    """
+
+    class Arguments:
+
+        result = graphene.List(graphene.List(graphene.Int()), required = True)
+        groups_to_delete = graphene.List(graphene.Int())
+
+    triumph = graphene.Boolean()
+
+    @staticmethod
+    def mutate(
+        root,
+        info,
+        perspective_id = None,
+        debug_flag = False):
+
+        try:
+            client_id = info.context.client_id
+            if debug_flag:
+                log.debug(f"client_id: {client_id}")
+
+            client = DBSession.query(Client).filter_by(id = client_id).first()
+
+            if not client or client.user_id != 1:
+                return ResponseError('Only administrator can reorder columns.')
+
+            perspective_list = [perspective_id] if perspective_id else (
+                DBSession
+                    .query(
+                        dbColumn.parent_client_id,
+                        dbColumn.parent_object_id)
+                    .filter_by(
+                        marked_for_deletion= 'false')
+                    .group_by(
+                        dbColumn.parent_client_id,
+                        dbColumn.parent_object_id)
+                    .having(
+                        func.count(dbColumn.position) -
+                        func.count(func.distinct(dbColumn.position)) > 0)
+                    .all()) or []
+
+            for per_id in perspective_list:
+                column_list = (
+                    DBSession
+                        .query(dbColumn)
+                        .filter_by(
+                            parent_id = per_id,
+                            marked_for_deletion = 'false')
+                        .order_by(
+                            dbColumn.position,
+                            dbColumn.client_id,
+                            dbColumn.object_id,
+                            dbColumn.created_at)
+                        .all()) or []
+
+                if debug_flag:
+                    log.debug(f'Processing {per_id} ...')
+
+                for i in range(1, len(column_list)):
+                    if column_list[i].position <= column_list[i-1].position:
+                        column_list[i].position = column_list[i-1].position + 1
+
+                        if debug_flag:
+                            log.debug(f">> Changed {i}'th")
+
+            if debug_flag:
+                log.debug(f"Total processed {len(perspective_list)} perspectives.")
+
+            return ReorderColumns(triumph = True)
+
+        except Exception as exception:
+
+            traceback_string = (
+
+                ''.join(
+                    traceback.format_exception(
+                        exception, exception, exception.__traceback__))[:-1])
+
+            log.warning('columns_reordering: exception')
+            log.warning(traceback_string)
+
+            return (
+
+                ResponseError(
+                    'Exception:\n' + traceback_string))
+
+
 class MyMutations(graphene.ObjectType):
     """
     Mutation classes.
@@ -9084,6 +9182,7 @@ class MyMutations(graphene.ObjectType):
     cognates_summary = CognatesSummary.Field()
     complex_distance = ComplexDistance.Field()
     tsakorpus = Tsakorpus.Field()
+    update_markups = UpdateMarkups.Field()
 
 schema = graphene.Schema(
     query=Query,
