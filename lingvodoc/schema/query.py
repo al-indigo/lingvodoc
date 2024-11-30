@@ -8650,14 +8650,15 @@ class Tsakorpus(graphene.Mutation):
             client_id = info.context.get('client_id')
             client = DBSession.query(Client).filter_by(id=client_id).first()
 
-            if not client or client.user_id != 1:
+            force = args.get('force', False)
+
+            if force and (not client or client.user_id != 1):
                 return (
 
                     ResponseError(
                         message='Not an administrator.'))
 
             perspective_id = args.get('perspective_id')
-            force = args.get('force', False)
             debug_flag = args.get('debug_flag', False)
 
             # Processing a single perspective.
