@@ -96,6 +96,8 @@ import lingvodoc.models as models
 
 from lingvodoc.models import (
     RUSSIAN_LOCALE,
+    AdverbAnnotationData as dbAdverbAnnotationData,
+    AdverbInstanceData as dbAdverbInstanceData,
     BaseGroup as dbBaseGroup,
     Client,
     DBSession,
@@ -111,6 +113,7 @@ from lingvodoc.models import (
     Language as dbLanguage,
     LexicalEntry as dbLexicalEntry,
     Locale as dbLocale,
+    MarkupGroup as dbMarkupGroup,
     Organization as dbOrganization,
     Parser as dbParser,
     ParserResult as dbParserResult,
@@ -129,8 +132,7 @@ from lingvodoc.models import (
     ValencyParserData as dbValencyParserData,
     ValencySentenceData as dbValencySentenceData,
     ValencySourceData as dbValencySourceData,
-    AdverbAnnotationData as dbAdverbAnnotationData,
-    AdverbInstanceData as dbAdverbInstanceData)
+    get_client_counter)
 
 from lingvodoc.queue.celery import celery
 
@@ -8970,86 +8972,76 @@ class Tsakorpus(graphene.Mutation):
                     'Exception:\n' + traceback_string))
 
 
-class UpdateMarkups(graphene.Mutation):
+class UpdateEntityMarkup(graphene.Mutation):
     """
     curl 'https://lingvodoc.ispras.ru/api/graphql' \
     -H 'Content-Type: application/json' \
     -H 'Cookie: locale_id=2; auth_tkt=$TOKEN!userid_type:int; client_id=$ID' \
-    --data-raw '{ "operationName": "update_markups", "variables": {"result": [[1,2]]}, \
-    "query": "mutation updateMarkupsMutation($result: [[Int]]!, groups_to_delete: [Int])" \
-    { update_markups(result: $result, groups_to_delete: $groups_to_delete) { triumph }}"}'
-
-    #! set perspectiveId to concrete LingvodocID for one perspective's positions reordering,
-    #! otherwise all perspectives with duplicated columns positions will be processed
+    --data-raw '{ "operationName": "update_entity_markup", "variables": {"id": [123, 321], \
+    "result": [[4,6]], "groups_to_delete": [7,8,9]}, "query": "mutation \
+    updateEntityMarkupMutation($id: LingvodocID, $result: [[LingvodocID]]!, $groups_to_delete: [LingvodocID])" \
+    { update_entity_markup(result: $result, groups_to_delete: $groups_to_delete) { triumph }}"}'
     """
 
     class Arguments:
 
-        result = graphene.List(graphene.List(graphene.Int()), required = True)
-        groups_to_delete = graphene.List(graphene.Int())
+        id = LingvodocID(requires = True)
+        result = graphene.List(graphene.List(LingvodocID), required = True)
+        groups_to_delete = graphene.List(LingvodocID)
+        debug_flag = graphene.Boolean()
 
     triumph = graphene.Boolean()
 
     @staticmethod
-    def mutate(
-        root,
-        info,
-        perspective_id = None,
-        debug_flag = False):
+    def mutate(root, info, **args):
 
         try:
             client_id = info.context.client_id
+
+            entity_id = args.get('id')
+            result = args.get('result')
+            force = args.get('force', False)
+            group_ids = args.get('groups_to_delete', [])
+            debug_flag = args.get('debug_flag', False)
+
             if debug_flag:
-                log.debug(f"client_id: {client_id}")
+                log.debug(f"{entity_id=}\n{result=}\n{group_ids=}")
 
             client = DBSession.query(Client).filter_by(id = client_id).first()
 
-            if not client or client.user_id != 1:
-                return ResponseError('Only administrator can reorder columns.')
+            if force and (not client or client.user_id != 1):
+                return ResponseError('Only administrator can use force mode.')
 
-            perspective_list = [perspective_id] if perspective_id else (
+            # Update entity's markups in additional_metadata
+            entity_to_update = (
                 DBSession
-                    .query(
-                        dbColumn.parent_client_id,
-                        dbColumn.parent_object_id)
-                    .filter_by(
-                        marked_for_deletion= 'false')
-                    .group_by(
-                        dbColumn.parent_client_id,
-                        dbColumn.parent_object_id)
-                    .having(
-                        func.count(dbColumn.position) -
-                        func.count(func.distinct(dbColumn.position)) > 0)
-                    .all()) or []
 
-            for per_id in perspective_list:
-                column_list = (
-                    DBSession
-                        .query(dbColumn)
-                        .filter_by(
-                            parent_id = per_id,
-                            marked_for_deletion = 'false')
-                        .order_by(
-                            dbColumn.position,
-                            dbColumn.client_id,
-                            dbColumn.object_id,
-                            dbColumn.created_at)
-                        .all()) or []
+                    .query(dbEntity)
+                    .filter(dbEntity.id == entity_id)
+                    .one())[0]
 
-                if debug_flag:
-                    log.debug(f'Processing {per_id} ...')
+            if type(entity_to_update.additional_metadata) is dict:
+                entity_to_update.additional_metadata['markups'] = result
+            else:
+                entity_to_update.additional_metadata = {'markups': result}
 
-                for i in range(1, len(column_list)):
-                    if column_list[i].position <= column_list[i-1].position:
-                        column_list[i].position = column_list[i-1].position + 1
+            flag_modified(entity_to_update, 'additional_metadata')
 
-                        if debug_flag:
-                            log.debug(f">> Changed {i}'th")
+            # Delete groups if any is in deleted markups
+            groups_to_delete = (
+                DBSession
 
-            if debug_flag:
-                log.debug(f"Total processed {len(perspective_list)} perspectives.")
+                    .query(dbMarkupGroup)
+                    .filter(tuple_(dbMarkupGroup.client_id, dbMarkupGroup.object_id).in_(group_ids))
+                    .all()
 
-            return ReorderColumns(triumph = True)
+            ) if len(group_ids) else []
+
+            for group_obj in groups_to_delete:
+                group_obj.marked_for_deletion = True
+                flag_modified(group_obj, 'marked_for_deletion')
+
+            return UpdateEntityMarkup(triumph = True)
 
         except Exception as exception:
 
@@ -9059,7 +9051,174 @@ class UpdateMarkups(graphene.Mutation):
                     traceback.format_exception(
                         exception, exception, exception.__traceback__))[:-1])
 
-            log.warning('columns_reordering: exception')
+            log.warning('update_entity_markup: exception')
+            log.warning(traceback_string)
+
+            return (
+
+                ResponseError(
+                    'Exception:\n' + traceback_string))
+
+class CreateMarkupGroup(graphene.Mutation):
+
+    class Arguments:
+
+        type = graphene.String(required=True)
+        markups = ObjectVal(required=True)
+        debug_flag = graphene.Boolean()
+
+    triumph = graphene.Boolean()
+
+    @staticmethod
+    def mutate(root, info, **args):
+
+        try:
+            client_id = info.context.client_id
+
+            gr_type = args.get('type')
+            markups = args.get('markups')
+            force = args.get('force', False)
+            debug_flag = args.get('debug_flag', False)
+
+            if debug_flag:
+                log.debug(f"{gr_type=}\n{markups=}")
+
+            client = DBSession.query(Client).filter_by(id=client_id).first()
+
+            if force and (not client or client.user_id != 1):
+                return ResponseError('Only administrator can use force mode.')
+
+            group_object_id = get_client_counter(client_id)
+
+            group_dict = {
+                'type': gr_type,
+                'client_id': client_id,
+                'object_id': group_object_id,
+                'created_at': datetime.datetime.now(datetime.timezone.utc).timestamp(),
+                'marked_for_deletion': False
+            }
+
+            DBSession.execute(
+                dbMarkupGroup.__table__
+                    .insert()
+                    .values([group_dict]))
+
+            entity_objs = (
+                DBSession
+                    .query(dbEntity)
+                    .filter(tuple_(dbEntity.client_id, dbEntity.object_id).in_(markups))
+                    .all())
+
+            for obj in entity_objs:
+
+                obj_markups = obj.additional_metadata.get('markups')
+
+                if not obj_markups:
+                    raise NotImplementedError
+
+                for mrk in obj_markups:
+                    offset, _ = mrk[0]
+                    if offset == markups[(obj.client_id, obj.object_id)]:
+                        mrk.append([client_id, group_object_id])
+                        flag_modified(obj, 'additional_metadata')
+                        break
+                else:
+                    # If no break
+                    raise NotImplementedError
+
+            return CreateMarkupGroup(triumph=True)
+
+        except Exception as exception:
+
+            traceback_string = (
+
+                ''.join(
+                    traceback.format_exception(
+                        exception, exception, exception.__traceback__))[:-1])
+
+            log.warning('create_markup_group: exception')
+            log.warning(traceback_string)
+
+            return (
+
+                ResponseError(
+                    'Exception:\n' + traceback_string))
+
+
+class DeleteMarkupGroup(graphene.Mutation):
+
+    class Arguments:
+
+        group_id = LingvodocID(required=True)
+        markups = ObjectVal(required=True)
+        debug_flag = graphene.Boolean()
+
+    triumph = graphene.Boolean()
+
+    @staticmethod
+    def mutate(root, info, **args):
+
+        try:
+            client_id = info.context.client_id
+
+            group_id = args.get('group_id')
+            markups = args.get('markups')
+            force = args.get('force', False)
+            debug_flag = args.get('debug_flag', False)
+
+            if debug_flag:
+                log.debug(f"{group_id=}\n{markups=}")
+
+            client = DBSession.query(Client).filter_by(id=client_id).first()
+
+            if force and (not client or client.user_id != 1):
+                return ResponseError('Only administrator can use force mode.')
+
+            group_obj = (
+                DBSession
+
+                    .query(dbMarkupGroup)
+                    .filter(dbMarkupGroup.id == group_id)
+                    .one())[0]
+
+            group_obj.marked_for_deletion = True
+            flag_modified(group_obj, 'marked_for_deletion')
+
+            entity_objs = (
+                DBSession
+
+                    .query(dbEntity)
+                    .filter(tuple_(dbEntity.client_id, dbEntity.object_id).in_(markups))
+                    .all())
+
+            for obj in entity_objs:
+
+                obj_markups = obj.additional_metadata.get('markups')
+
+                if not obj_markups:
+                    raise NotImplementedError
+
+                for mrk in obj_markups:
+                    offset, _ = mrk[0]
+                    if offset == markups[(obj.client_id, obj.object_id)]:
+                        mrk.remove(group_id)
+                        flag_modified(obj, 'additional_metadata')
+                        break
+                else:
+                    # If no break
+                    raise NotImplementedError
+
+            return DeleteMarkupGroup(triumph=True)
+
+        except Exception as exception:
+
+            traceback_string = (
+
+                ''.join(
+                    traceback.format_exception(
+                        exception, exception, exception.__traceback__))[:-1])
+
+            log.warning('delete_markup_group: exception')
             log.warning(traceback_string)
 
             return (
@@ -9183,7 +9342,9 @@ class MyMutations(graphene.ObjectType):
     cognates_summary = CognatesSummary.Field()
     complex_distance = ComplexDistance.Field()
     tsakorpus = Tsakorpus.Field()
-    update_markups = UpdateMarkups.Field()
+    update_entity_markup = UpdateEntityMarkup.Field()
+    create_markup_group = CreateMarkupGroup.Field()
+    delete_markup_group = DeleteMarkupGroup.Field()
 
 schema = graphene.Schema(
     query=Query,
