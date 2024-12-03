@@ -2763,3 +2763,13 @@ class AdverbAnnotationData(
     instance_id = Column(SLBigInteger(), ForeignKey('adverb_instance_data.id'), primary_key = True)
     user_id = Column(SLBigInteger(), ForeignKey('user.id'), primary_key = True)
     accepted = Column(Boolean, default = None)
+
+
+class MarkupGroup(
+    Base,
+    TableNameMixin,
+    CompositeIdMixin,
+    CreatedAtMixin,
+    MarkedForDeletionMixin):
+
+    type = Column(UnicodeText, nullable = False)
