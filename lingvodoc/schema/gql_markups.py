@@ -21,6 +21,10 @@ from lingvodoc.schema.gql_holders import (
     ResponseError,
     fetch_object)
 
+from lingvodoc.models import (
+    MarkupGroup as dbMarkupGroup
+)
+
 from sqlalchemy import (tuple_)
 
 from pdb import set_trace as A
@@ -75,14 +79,13 @@ class Markup(graphene.ObjectType):
 
         markup_groups = (
             DBSession
-                .query(MarkupGroup)
+                .query(dbMarkupGroup)
+                .filter(client_id)
+
         )
 
         result = []
-
-
-
-
+        return result
 
 class UpdateEntityMarkup(graphene.Mutation):
     """

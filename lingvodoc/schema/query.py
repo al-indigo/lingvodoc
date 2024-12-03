@@ -5205,9 +5205,38 @@ class Query(graphene.ObjectType):
                         info,
                         perspective_id):
 
-        result_dict = {}
+        entities = (
+            DBSession
+                .query(
+                    dbEntity.client_id,
+                    dbEntity.object_id,
+                    dbEntity.content,
+                    dbEntity.additional_metadata)
+                .filter(
+                    dbEntity.marked_for_deletion == False,
+                    dbEntity.parent_id == dbLexicalEntry.id,
+                    dbLexicalEntry.marked_for_deletion == False,
+                    dbLexicalEntry.parent_id == perspective_id)
+                .all())
 
-        return result_dict
+        result = []
+
+        for cid, oid, content, meta in entities:
+            markups = []
+
+            if type(meta) is dict:
+                markups = meta.get['markups', []]
+
+            for mark in markups:
+                start_offset, end_offset = mark.pop(0)
+
+                result.append(Markup(
+                    entity_client_id = cid,
+                    entity_object_id = oid,
+                    markup_text = content[start_offset, end_offset],
+                    markup_groups = mark))
+
+        return result
 
 class PerspectivesAndFields(graphene.InputObjectType):
     perspective_id = LingvodocID()

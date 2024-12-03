@@ -2773,3 +2773,5 @@ class MarkupGroup(
     MarkedForDeletionMixin):
 
     type = Column(UnicodeText, nullable = False)
+    perspective_client_id = Column(SLBigInteger(), nullable = False)
+    perspective_object_id = Column(SLBigInteger(), nullable = False)
