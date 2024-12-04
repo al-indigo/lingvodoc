@@ -22,7 +22,8 @@ from lingvodoc.schema.gql_holders import (
     fetch_object)
 
 from lingvodoc.models import (
-    MarkupGroup as dbMarkupGroup
+    MarkupGroup as dbMarkupGroup,
+    Client as dbClient
 )
 
 from sqlalchemy import (tuple_)
@@ -39,6 +40,7 @@ class MarkupGroup(graphene.ObjectType):
     type = graphene.String()
     author = graphene.Int()
     created_at = graphene.Float()
+    dbType = dbMarkupGroup
 
     @fetch_object()
     def resolve_client_id(self, info):
@@ -74,18 +76,48 @@ class Markup(graphene.ObjectType):
         type=graphene.String(),
         author=graphene.Int())
 
-    @fetch_object('markup_groups')
+    def resolve_field_translation(self, info):
+        return self.field_translation
+
+    def resolve_field_position(self, info):
+        return self.field_position
+
+    def resolve_entity_client_id(self, info):
+        return self.entity_client_id
+
+    def resolve_entity_object_id(self, info):
+        return self.entity_object_id
+
+    def resolve_markup_offset(self, info):
+        return self.markup_offset
+
+    def resolve_markup_text(self, info):
+        return self.markup_text
+
     def resolve_markup_groups(self, info, type=None, author=None):
+
+        custom_filters = list()
+        if type:
+            custom_filters.extend([
+                dbMarkupGroup.type == type])
+        if author:
+            custom_filters.extend([
+                dbMarkupGroup.client_id == dbClient.id,
+                dbClient.user_id == author])
 
         markup_groups = (
             DBSession
                 .query(dbMarkupGroup)
-                .filter(client_id)
+                .filter(
+                    tuple_(
+                        dbMarkupGroup.client_id,
+                        dbMarkupGroup.object_id
+                    ).in_(self.markup_group_ids),
+                    dbMarkupGroup.marked_for_deletion == False,
+                    *custom_filters)
+                .all())
 
-        )
-
-        result = []
-        return result
+        return markup_groups
 
 class UpdateEntityMarkup(graphene.Mutation):
     """
@@ -133,8 +165,9 @@ class UpdateEntityMarkup(graphene.Mutation):
 
                     .query(dbEntity)
                     .filter(dbEntity.id == entity_id)
-                    .one())[0]
+                    .scalar())
 
+            # check here!
             if type(entity_to_update.additional_metadata) is dict:
                 entity_to_update.additional_metadata['markups'] = result
             else:
@@ -295,7 +328,7 @@ class DeleteMarkupGroup(graphene.Mutation):
                     .query(MarkupGroup)
                     .filter(MarkupGroup.client_id == group_id[0],
                             MarkupGroup.object_id == group_id[1])
-                    .one())[0]
+                    .scalar())
 
             group_obj.marked_for_deletion = True
             flag_modified(group_obj, 'marked_for_deletion')

@@ -5205,36 +5205,51 @@ class Query(graphene.ObjectType):
                         info,
                         perspective_id):
 
+        locale_id = info.context.locale_id
+
         entities = (
             DBSession
                 .query(
                     dbEntity.client_id,
                     dbEntity.object_id,
                     dbEntity.content,
-                    dbEntity.additional_metadata)
+                    dbEntity.additional_metadata,
+                    dbTranslationAtom.content,
+                    dbColumn.position)
                 .filter(
-                    dbEntity.marked_for_deletion == False,
+                    dbColumn.parent_id == perspective_id,
+                    dbColumn.field_id == Field.id,
+                    dbColumn.marked_for_deletion == False,
+                    dbTranslationAtom.locale_id == locale_id,
+                    dbTranslationAtom.parent_id == dbTranslationGist.id,
+                    dbTranslationAtom.marked_for_deletion == False,
+                    dbTranslationGist.id == dbField.translation_gist_id,
+                    dbTranslationGist == False,
+                    dbField.id == dbEntity.field_id,
                     dbEntity.parent_id == dbLexicalEntry.id,
-                    dbLexicalEntry.marked_for_deletion == False,
-                    dbLexicalEntry.parent_id == perspective_id)
+                    dbEntity.marked_for_deletion == False,
+                    dbLexicalEntry.parent_id == perspective_id,
+                    dbLexicalEntry.marked_for_deletion == False)
                 .all())
 
         result = []
 
-        for cid, oid, content, meta in entities:
-            markups = []
+        for cid, oid, content, meta, f_name, f_pos in entities:
 
-            if type(meta) is dict:
-                markups = meta.get['markups', []]
+            markups = meta.get['markups', []] if type(meta) is dict else []
 
             for mark in markups:
+
+                # First pair in markup record is markup offset, next ones are group ids if any
                 start_offset, end_offset = mark.pop(0)
 
                 result.append(Markup(
                     entity_client_id = cid,
                     entity_object_id = oid,
                     markup_text = content[start_offset, end_offset],
-                    markup_groups = mark))
+                    markup_group_ids = mark,
+                    field_translation = f_name,
+                    field_position = f_pos))
 
         return result
 
@@ -8414,9 +8429,9 @@ class Tsakorpus(graphene.Mutation):
                     dbPerspective.id == perspective_id,
                     dbPerspective.marked_for_deletion == False)
 
-                .one())
+                .scalar())
 
-        corpus_uploaded_at = metadata[0].get('uploaded_at') if type(metadata[0]) is dict else None
+        corpus_uploaded_at = metadata.get('uploaded_at') if type(metadata) is dict else None
 
         entity_cte = (
 
