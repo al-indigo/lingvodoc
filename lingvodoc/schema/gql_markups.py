@@ -37,6 +37,8 @@ log = logging.getLogger(__name__)
 class MarkupGroup(graphene.ObjectType):
     client_id = graphene.Int()
     object_id = graphene.Int()
+    perspective_client_id = graphene.Int()
+    perspective_object_id = graphene.Int()
     type = graphene.String()
     author = graphene.Int()
     created_at = graphene.Float()
@@ -49,6 +51,14 @@ class MarkupGroup(graphene.ObjectType):
     @fetch_object()
     def resolve_object_id(self, info):
         return self.dbObject.object_id
+
+    @fetch_object()
+    def resolve_perspective_client_id(self, info):
+        return self.dbObject.perspective_client_id
+
+    @fetch_object()
+    def resolve_perspective_object_id(self, info):
+        return self.dbObject.perspective_object_id
 
     @fetch_object()
     def resolve_type(self, info):
