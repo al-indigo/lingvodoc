@@ -27,6 +27,7 @@ from lingvodoc.models import (
 )
 from lingvodoc.utils.verification import check_client_id
 from lingvodoc.cache.caching import CACHE
+from pdb import set_trace as A
 
 
 # Setting up logging.

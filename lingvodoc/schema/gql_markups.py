@@ -83,8 +83,8 @@ class Markup(graphene.ObjectType):
     markup_text = graphene.String()
     markup_groups = graphene.List(
         MarkupGroup,
-        type=graphene.String(),
-        author=graphene.Int())
+        gr_type = graphene.String(),
+        author = graphene.Int())
 
     def resolve_field_translation(self, info):
         return self.field_translation
@@ -104,12 +104,12 @@ class Markup(graphene.ObjectType):
     def resolve_markup_text(self, info):
         return self.markup_text
 
-    def resolve_markup_groups(self, info, type=None, author=None):
+    def resolve_markup_groups(self, info, gr_type=None, author=None):
 
         custom_filters = list()
-        if type:
+        if gr_type:
             custom_filters.extend([
-                dbMarkupGroup.type == type])
+                dbMarkupGroup.type == gr_type])
         if author:
             custom_filters.extend([
                 dbMarkupGroup.client_id == dbClient.id,
@@ -142,7 +142,7 @@ class UpdateEntityMarkup(graphene.Mutation):
 
     class Arguments:
 
-        id = LingvodocID(requires = True)
+        id = LingvodocID(required = True)
         result = graphene.List(graphene.List(LingvodocID), required = True)
         groups_to_delete = graphene.List(LingvodocID)
         debug_flag = graphene.Boolean()
@@ -221,8 +221,10 @@ class CreateMarkupGroup(graphene.Mutation):
 
     class Arguments:
 
-        type = graphene.String(required=True)
+        gr_type = graphene.String(required=True)
         markups = ObjectVal(required=True)
+        perspective_client_id = graphene.Int(required=True)
+        perspective_object_id = graphene.Int(required=True)
         debug_flag = graphene.Boolean()
 
     triumph = graphene.Boolean()
@@ -233,8 +235,10 @@ class CreateMarkupGroup(graphene.Mutation):
         try:
             client_id = info.context.client_id
 
-            gr_type = args.get('type')
+            gr_type = args.get('gr_type')
             markups = args.get('markups')
+            perspective_cid = args.get('perspective_client_id')
+            perspective_oid = args.get('perspective_object_id')
             force = args.get('force', False)
             debug_flag = args.get('debug_flag', False)
 
@@ -252,6 +256,8 @@ class CreateMarkupGroup(graphene.Mutation):
                 'type': gr_type,
                 'client_id': client_id,
                 'object_id': group_object_id,
+                'perspective_client_id': perspective_cid,
+                'perspective_object_id': perspective_oid,
                 'created_at': datetime.datetime.now(datetime.timezone.utc).timestamp(),
                 'marked_for_deletion': False
             }
