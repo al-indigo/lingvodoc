@@ -57,6 +57,7 @@ from lingvodoc.utils import ids_to_id_query
 from lingvodoc.utils.creation import create_lexicalentry
 from lingvodoc.utils.deletion import real_delete_entity
 from lingvodoc.utils.search import find_all_tags, find_lexical_entries_by_tags
+from pdb import set_trace as A
 
 
 # Setting up logging.

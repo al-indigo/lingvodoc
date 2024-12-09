@@ -69,6 +69,7 @@ from lingvodoc.utils.deletion import real_delete_entity
 from lingvodoc.utils.elan_functions import eaf_wordlist
 from lingvodoc.utils.lexgraph_marker import marker_between_arith as marker_between
 from lingvodoc.utils.verification import check_client_id, check_lingvodoc_id
+from pdb import set_trace as A
 
 
 # Setting up logging.
@@ -1275,6 +1276,7 @@ class UpdateEntityContent(graphene.Mutation):
         """
         id = LingvodocID()
         content = graphene.String()
+        markups = graphene.List(graphene.List(LingvodocID))
         lexgraph_before = graphene.String()
         lexgraph_after = graphene.String()
 
@@ -1287,6 +1289,7 @@ class UpdateEntityContent(graphene.Mutation):
         old_client_id, object_id = args.get('id')
         client_id = DBSession.query(Client).filter_by(id=info.context.client_id).first().id
         content = args.get("content")
+        markups = args.get("markups")
         lexgraph_before = args.get("lexgraph_before", '')
         lexgraph_after = args.get("lexgraph_after", '')
         if content is None and (lexgraph_before or lexgraph_after):
@@ -1321,6 +1324,13 @@ class UpdateEntityContent(graphene.Mutation):
 
         info.context.acl_check('create', 'lexical_entries_and_entities',
                                (parent.parent_client_id, parent.parent_object_id))
+
+        if markups:
+            if type(dbentity_old.additional_metadata) is dict:
+                dbentity_old.additional_metadata['markups'] = markups
+            else:
+                dbentity_old.additional_metadata = {'markups': markups}
+
         dbentity = dbEntity(client_id=client_id,
                         object_id=None,
                         field_client_id=dbentity_old.field_client_id,
