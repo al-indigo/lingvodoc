@@ -81,6 +81,7 @@ class Markup(graphene.ObjectType):
     entity_object_id = graphene.Int()
     markup_offset = graphene.Int()
     markup_text = graphene.String()
+    markup_group_ids = graphene.List(LingvodocID)
     markup_groups = graphene.List(
         MarkupGroup,
         gr_type = graphene.String(),

@@ -5234,15 +5234,19 @@ class Query(graphene.ObjectType):
                     dbColumn.position)
                 .all())
 
-        return #debugging
-
         result = []
 
-        for cid, oid, content, meta, f_name, f_pos in entities:
+        for (cid, oid, content, meta, f_name, f_pos) in entities:
 
-            markups = meta.get['markups', []] if type(meta) is dict else []
+            markups = meta.get('markups', []) if type(meta) is dict else []
 
             for mark in markups:
+
+                # Because of markups argument type 'graphene.List(graphene.List(LingvodocID))'
+                # we have to use '[[]]' structure for empty markups set, so one empty markup
+                # exists any way
+                if not len(mark) or len(mark[0]) != 2:
+                    continue
 
                 # First pair in markup record is markup offset, next ones are group ids if any
                 start_offset, end_offset = mark.pop(0)
@@ -5250,7 +5254,7 @@ class Query(graphene.ObjectType):
                 result.append(Markup(
                     entity_client_id = cid,
                     entity_object_id = oid,
-                    markup_text = content[start_offset, end_offset],
+                    markup_text = content[start_offset : end_offset],
                     markup_group_ids = mark,
                     field_translation = f_name,
                     field_position = f_pos))
