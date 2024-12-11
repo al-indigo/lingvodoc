@@ -5218,19 +5218,23 @@ class Query(graphene.ObjectType):
                     dbColumn.position)
                 .filter(
                     dbColumn.parent_id == perspective_id,
-                    dbColumn.field_id == Field.id,
+                    dbColumn.field_id == dbField.id,
                     dbColumn.marked_for_deletion == False,
                     dbTranslationAtom.locale_id == locale_id,
                     dbTranslationAtom.parent_id == dbTranslationGist.id,
                     dbTranslationAtom.marked_for_deletion == False,
                     dbTranslationGist.id == dbField.translation_gist_id,
-                    dbTranslationGist == False,
+                    dbTranslationGist.marked_for_deletion == False,
                     dbField.id == dbEntity.field_id,
                     dbEntity.parent_id == dbLexicalEntry.id,
                     dbEntity.marked_for_deletion == False,
                     dbLexicalEntry.parent_id == perspective_id,
                     dbLexicalEntry.marked_for_deletion == False)
+                .order_by(
+                    dbColumn.position)
                 .all())
+
+        return #debugging
 
         result = []
 
