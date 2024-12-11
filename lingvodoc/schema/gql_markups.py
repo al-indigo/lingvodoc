@@ -13,6 +13,9 @@ from lingvodoc.models import (
     Client,
     DBSession,
     Entity as dbEntity,
+    User as dbUser,
+    MarkupGroup as dbMarkupGroup,
+    Client as dbClient,
     get_client_counter)
 
 from lingvodoc.schema.gql_holders import (
@@ -20,11 +23,6 @@ from lingvodoc.schema.gql_holders import (
     ObjectVal,
     ResponseError,
     fetch_object)
-
-from lingvodoc.models import (
-    MarkupGroup as dbMarkupGroup,
-    Client as dbClient
-)
 
 from sqlalchemy import (tuple_)
 
@@ -40,7 +38,8 @@ class MarkupGroup(graphene.ObjectType):
     perspective_client_id = graphene.Int()
     perspective_object_id = graphene.Int()
     type = graphene.String()
-    author = graphene.Int()
+    author_id = graphene.Int()
+    author_name = graphene.String()
     created_at = graphene.Float()
     dbType = dbMarkupGroup
 
@@ -65,9 +64,19 @@ class MarkupGroup(graphene.ObjectType):
         return self.dbObject.type
 
     @fetch_object()
-    def resolve_author(self, info):
+    def resolve_author_id(self, info):
         return (
-            DBSession.query(Client.user_id).filter_by(id=self.dbObject.client_id).scalar())
+            DBSession.query(dbClient.user_id).filter_by(id=self.dbObject.client_id).scalar())
+
+    @fetch_object()
+    def resolve_author_name(self, info):
+        return (
+            DBSession
+                .query(dbUser.name)
+                .filter(
+                    dbUser.id == dbClient.user_id,
+                    dbClient.id == self.dbObject.client_id)
+                .scalar())
 
     @fetch_object()
     def resolve_created_at(self, info):
@@ -176,9 +185,8 @@ class UpdateEntityMarkup(graphene.Mutation):
 
                     .query(dbEntity)
                     .filter(dbEntity.id == entity_id)
-                    .scalar())
+                    .one())
 
-            # check here!
             if type(entity_to_update.additional_metadata) is dict:
                 entity_to_update.additional_metadata['markups'] = result
             else:

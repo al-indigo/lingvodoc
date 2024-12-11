@@ -5218,6 +5218,7 @@ class Query(graphene.ObjectType):
                     dbColumn.position)
                 .filter(
                     dbColumn.parent_id == perspective_id,
+                    dbColumn.position.in_([2,3]),
                     dbColumn.field_id == dbField.id,
                     dbColumn.marked_for_deletion == False,
                     dbTranslationAtom.locale_id == locale_id,
