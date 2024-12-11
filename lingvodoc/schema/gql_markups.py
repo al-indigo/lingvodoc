@@ -10,7 +10,6 @@ import graphene.types
 from sqlalchemy.orm.attributes import flag_modified
 
 from lingvodoc.models import (
-    Client,
     DBSession,
     Entity as dbEntity,
     User as dbUser,
@@ -174,7 +173,7 @@ class UpdateEntityMarkup(graphene.Mutation):
             if debug_flag:
                 log.debug(f"{entity_id=}\n{result=}\n{group_ids=}")
 
-            client = DBSession.query(Client).filter_by(id = client_id).first()
+            client = DBSession.query(dbClient).filter_by(id = client_id).first()
 
             if force and (not client or client.user_id != 1):
                 return ResponseError('Only administrator can use force mode.')
@@ -254,7 +253,7 @@ class CreateMarkupGroup(graphene.Mutation):
             if debug_flag:
                 log.debug(f"{gr_type=}\n{markups=}")
 
-            client = DBSession.query(Client).filter_by(id=client_id).first()
+            client = DBSession.query(dbClient).filter_by(id=client_id).first()
 
             if force and (not client or client.user_id != 1):
                 return ResponseError('Only administrator can use force mode.')
@@ -342,7 +341,7 @@ class DeleteMarkupGroup(graphene.Mutation):
             if debug_flag:
                 log.debug(f"{group_id=}\n{markups=}")
 
-            client = DBSession.query(Client).filter_by(id=client_id).first()
+            client = DBSession.query(dbClient).filter_by(id=client_id).first()
 
             if force and (not client or client.user_id != 1):
                 return ResponseError('Only administrator can use force mode.')
