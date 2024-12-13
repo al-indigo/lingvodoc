@@ -19,7 +19,6 @@ from lingvodoc.models import (
 
 from lingvodoc.schema.gql_holders import (
     LingvodocID,
-    ObjectVal,
     ResponseError,
     fetch_object)
 
@@ -93,7 +92,7 @@ class Markup(graphene.ObjectType):
     group_ids = graphene.List(LingvodocID)
     markup_groups = graphene.List(
         MarkupGroup,
-        gr_type = graphene.String(),
+        group_type = graphene.String(),
         author = graphene.Int())
 
     def resolve_field_translation(self, info):
@@ -120,12 +119,12 @@ class Markup(graphene.ObjectType):
     def resolve_group_ids(self, info):
         return self.group_ids
 
-    def resolve_markup_groups(self, info, gr_type=None, author=None):
+    def resolve_markup_groups(self, info, group_type=None, author=None):
 
         custom_filters = list()
-        if gr_type:
+        if group_type:
             custom_filters.extend([
-                dbMarkupGroup.type == gr_type])
+                dbMarkupGroup.type == group_type])
         if author:
             custom_filters.extend([
                 dbMarkupGroup.client_id == dbClient.id,
@@ -212,8 +211,8 @@ class UpdateEntityMarkup(graphene.Mutation):
             groups_to_delete = (
                 DBSession
 
-                    .query(MarkupGroup)
-                    .filter(tuple_(MarkupGroup.client_id, MarkupGroup.object_id).in_(group_ids))
+                    .query(dbMarkupGroup)
+                    .filter(tuple_(dbMarkupGroup.client_id, dbMarkupGroup.object_id).in_(group_ids))
                     .all()
 
             ) if len(group_ids) else []
@@ -244,10 +243,9 @@ class CreateMarkupGroup(graphene.Mutation):
 
     class Arguments:
 
-        gr_type = graphene.String(required=True)
+        group_type = graphene.String(required=True)
         markups = graphene.List(graphene.List(graphene.Int, required=True))
-        perspective_client_id = graphene.Int(required=True)
-        perspective_object_id = graphene.Int(required=True)
+        perspective_id = LingvodocID(required=True)
         debug_flag = graphene.Boolean()
 
     triumph = graphene.Boolean()
@@ -258,14 +256,13 @@ class CreateMarkupGroup(graphene.Mutation):
         try:
             client_id = info.context.client_id
 
-            gr_type = args.get('gr_type')
+            group_type = args.get('group_type')
             markups = list2dict(args.get('markups'))
-            perspective_cid = args.get('perspective_client_id')
-            perspective_oid = args.get('perspective_object_id')
+            perspective_id = args.get('perspective_id')
             debug_flag = args.get('debug_flag', False)
 
             if debug_flag:
-                log.debug(f"{gr_type=}\n{markups=}")
+                log.debug(f"{group_type=}\n{markups=}")
 
             client = DBSession.query(dbClient).filter_by(id=client_id).first()
 
@@ -275,17 +272,17 @@ class CreateMarkupGroup(graphene.Mutation):
             group_object_id = get_client_counter(client_id)
 
             group_dict = {
-                'type': gr_type,
+                'type': group_type,
                 'client_id': client_id,
                 'object_id': group_object_id,
-                'perspective_client_id': perspective_cid,
-                'perspective_object_id': perspective_oid,
+                'perspective_client_id': perspective_id[0],
+                'perspective_object_id': perspective_id[1],
                 'created_at': datetime.datetime.now(datetime.timezone.utc).timestamp(),
                 'marked_for_deletion': False
             }
 
             DBSession.execute(
-                MarkupGroup.__table__
+                dbMarkupGroup.__table__
                     .insert()
                     .values([group_dict]))
 
@@ -337,6 +334,7 @@ class DeleteMarkupGroup(graphene.Mutation):
 
         group_id = LingvodocID(required=True)
         markups = graphene.List(graphene.List(graphene.Int, required=True))
+        perspective_id = LingvodocID()
         debug_flag = graphene.Boolean()
 
     triumph = graphene.Boolean()
@@ -362,9 +360,9 @@ class DeleteMarkupGroup(graphene.Mutation):
             group_obj = (
                 DBSession
 
-                    .query(MarkupGroup)
-                    .filter(MarkupGroup.client_id == group_id[0],
-                            MarkupGroup.object_id == group_id[1])
+                    .query(dbMarkupGroup)
+                    .filter(dbMarkupGroup.client_id == group_id[0],
+                            dbMarkupGroup.object_id == group_id[1])
                     .one())
 
             group_obj.marked_for_deletion = True
