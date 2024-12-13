@@ -311,7 +311,7 @@ from lingvodoc.schema.gql_userrequest import (
     UserRequest)
 
 from lingvodoc.schema.gql_markups import (
-    UpdateEntityMarkup,
+    #UpdateEntityMarkup,
     CreateMarkupGroup,
     DeleteMarkupGroup,
     Markup,
@@ -370,6 +370,8 @@ from lingvodoc.views.v2.utils import (
     anonymous_userid,
     storage_file,
     view_field_from_object)
+
+from operator import attrgetter
 
 from pdb import set_trace as A
 
@@ -5231,8 +5233,8 @@ class Query(graphene.ObjectType):
                     dbEntity.marked_for_deletion == False,
                     dbLexicalEntry.parent_id == perspective_id,
                     dbLexicalEntry.marked_for_deletion == False)
-                .order_by(
-                    dbColumn.position)
+                #.order_by(
+                #    dbColumn.position)
                 .all())
 
         result = []
@@ -5253,13 +5255,16 @@ class Query(graphene.ObjectType):
                 start_offset, end_offset = mark.pop(0)
 
                 result.append(Markup(
+                    id = f'{cid}_{oid}_{start_offset}',
+                    text = content[start_offset : end_offset],
+                    offset = start_offset,
+                    group_ids = mark,
                     entity_client_id = cid,
                     entity_object_id = oid,
-                    markup_text = content[start_offset : end_offset],
-                    markup_offset = start_offset,
-                    markup_group_ids = mark,
                     field_translation = f_name,
                     field_position = f_pos))
+
+        result.sort(key=attrgetter('field_position', 'field_translation', 'text'))
 
         return result
 
@@ -9160,7 +9165,7 @@ class MyMutations(graphene.ObjectType):
     cognates_summary = CognatesSummary.Field()
     complex_distance = ComplexDistance.Field()
     tsakorpus = Tsakorpus.Field()
-    update_entity_markup = UpdateEntityMarkup.Field()
+    #update_entity_markup = UpdateEntityMarkup.Field()
     create_markup_group = CreateMarkupGroup.Field()
     delete_markup_group = DeleteMarkupGroup.Field()
 

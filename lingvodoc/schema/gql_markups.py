@@ -1,6 +1,6 @@
 
 # Standard library imports.
-
+import collections
 import datetime
 import traceback
 import logging
@@ -87,9 +87,10 @@ class Markup(graphene.ObjectType):
     field_position = graphene.Int()
     entity_client_id = graphene.Int()
     entity_object_id = graphene.Int()
-    markup_offset = graphene.Int()
-    markup_text = graphene.String()
-    markup_group_ids = graphene.List(LingvodocID)
+    offset = graphene.Int()
+    text = graphene.String()
+    id = graphene.String()
+    group_ids = graphene.List(LingvodocID)
     markup_groups = graphene.List(
         MarkupGroup,
         gr_type = graphene.String(),
@@ -107,11 +108,17 @@ class Markup(graphene.ObjectType):
     def resolve_entity_object_id(self, info):
         return self.entity_object_id
 
-    def resolve_markup_offset(self, info):
-        return self.markup_offset
+    def resolve_offset(self, info):
+        return self.offset
 
-    def resolve_markup_text(self, info):
-        return self.markup_text
+    def resolve_text(self, info):
+        return self.text
+
+    def resolve_id(self, info):
+        return self.id
+
+    def resolve_group_ids(self, info):
+        return self.group_ids
 
     def resolve_markup_groups(self, info, gr_type=None, author=None):
 
@@ -131,12 +138,20 @@ class Markup(graphene.ObjectType):
                     tuple_(
                         dbMarkupGroup.client_id,
                         dbMarkupGroup.object_id
-                    ).in_(self.markup_group_ids),
+                    ).in_(self.group_ids),
                     dbMarkupGroup.marked_for_deletion == False,
                     *custom_filters)
                 .all())
 
         return markup_groups
+
+def list2dict(markup_list):
+    markup_dict = collections.defaultdict(list)
+
+    for (cid, oid, offset) in markup_list:
+        markup_dict[(cid, oid)].append(offset)
+
+    return markup_dict
 
 class UpdateEntityMarkup(graphene.Mutation):
     """
@@ -230,7 +245,7 @@ class CreateMarkupGroup(graphene.Mutation):
     class Arguments:
 
         gr_type = graphene.String(required=True)
-        markups = ObjectVal(required=True)
+        markups = graphene.List(graphene.List(graphene.Int, required=True))
         perspective_client_id = graphene.Int(required=True)
         perspective_object_id = graphene.Int(required=True)
         debug_flag = graphene.Boolean()
@@ -244,10 +259,9 @@ class CreateMarkupGroup(graphene.Mutation):
             client_id = info.context.client_id
 
             gr_type = args.get('gr_type')
-            markups = args.get('markups')
+            markups = list2dict(args.get('markups'))
             perspective_cid = args.get('perspective_client_id')
             perspective_oid = args.get('perspective_object_id')
-            force = args.get('force', False)
             debug_flag = args.get('debug_flag', False)
 
             if debug_flag:
@@ -255,8 +269,8 @@ class CreateMarkupGroup(graphene.Mutation):
 
             client = DBSession.query(dbClient).filter_by(id=client_id).first()
 
-            if force and (not client or client.user_id != 1):
-                return ResponseError('Only administrator can use force mode.')
+            if not client:
+                return ResponseError('Only authorized users can create markup groups.')
 
             group_object_id = get_client_counter(client_id)
 
@@ -281,18 +295,18 @@ class CreateMarkupGroup(graphene.Mutation):
                     .filter(tuple_(dbEntity.client_id, dbEntity.object_id).in_(markups))
                     .all())
 
-            for obj in entity_objs:
+            for ent in entity_objs:
 
-                obj_markups = obj.additional_metadata.get('markups')
+                markup_objs = ent.additional_metadata.get('markups')
 
-                if not obj_markups:
+                if not markup_objs:
                     raise NotImplementedError
 
-                for mrk in obj_markups:
+                for mrk in markup_objs:
                     offset, _ = mrk[0]
-                    if offset == markups[(obj.client_id, obj.object_id)]:
+                    if offset in markups[(ent.client_id, ent.object_id)]:
                         mrk.append([client_id, group_object_id])
-                        flag_modified(obj, 'additional_metadata')
+                        flag_modified(ent, 'additional_metadata')
                         break
                 else:
                     # If no break
@@ -322,7 +336,7 @@ class DeleteMarkupGroup(graphene.Mutation):
     class Arguments:
 
         group_id = LingvodocID(required=True)
-        markups = ObjectVal(required=True)
+        markups = graphene.List(graphene.List(graphene.Int, required=True))
         debug_flag = graphene.Boolean()
 
     triumph = graphene.Boolean()
@@ -334,8 +348,7 @@ class DeleteMarkupGroup(graphene.Mutation):
             client_id = info.context.client_id
 
             group_id = args.get('group_id')
-            markups = args.get('markups')
-            force = args.get('force', False)
+            markups = list2dict(args.get('markups'))
             debug_flag = args.get('debug_flag', False)
 
             if debug_flag:
@@ -343,8 +356,8 @@ class DeleteMarkupGroup(graphene.Mutation):
 
             client = DBSession.query(dbClient).filter_by(id=client_id).first()
 
-            if force and (not client or client.user_id != 1):
-                return ResponseError('Only administrator can use force mode.')
+            if not client:
+                return ResponseError('Only authorized users can delete markup groups.')
 
             group_obj = (
                 DBSession
@@ -352,7 +365,7 @@ class DeleteMarkupGroup(graphene.Mutation):
                     .query(MarkupGroup)
                     .filter(MarkupGroup.client_id == group_id[0],
                             MarkupGroup.object_id == group_id[1])
-                    .scalar())
+                    .one())
 
             group_obj.marked_for_deletion = True
             flag_modified(group_obj, 'marked_for_deletion')
@@ -364,18 +377,18 @@ class DeleteMarkupGroup(graphene.Mutation):
                     .filter(tuple_(dbEntity.client_id, dbEntity.object_id).in_(markups))
                     .all())
 
-            for obj in entity_objs:
+            for ent in entity_objs:
 
-                obj_markups = obj.additional_metadata.get('markups')
+                markup_objs = ent.additional_metadata.get('markups')
 
-                if not obj_markups:
+                if not markup_objs:
                     raise NotImplementedError
 
-                for mrk in obj_markups:
+                for mrk in markup_objs:
                     offset, _ = mrk[0]
-                    if offset == markups[(obj.client_id, obj.object_id)]:
+                    if offset in markups[(ent.client_id, ent.object_id)]:
                         mrk.remove(group_id)
-                        flag_modified(obj, 'additional_metadata')
+                        flag_modified(ent, 'additional_metadata')
                         break
                 else:
                     # If no break
