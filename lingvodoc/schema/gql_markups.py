@@ -15,12 +15,12 @@ from lingvodoc.models import (
     User as dbUser,
     MarkupGroup as dbMarkupGroup,
     Client as dbClient,
+    LexicalEntry as dbLexicalEntry,
     get_client_counter)
 
 from lingvodoc.schema.gql_holders import (
     LingvodocID,
-    ResponseError,
-    fetch_object)
+    ResponseError)
 
 from sqlalchemy import (tuple_)
 
@@ -145,6 +145,7 @@ def list2dict(markup_list):
 
     return markup_dict
 
+'''
 class UpdateEntityMarkup(graphene.Mutation):
     """
     curl 'https://lingvodoc.ispras.ru/api/graphql' \
@@ -231,6 +232,8 @@ class UpdateEntityMarkup(graphene.Mutation):
 
                 ResponseError(
                     'Exception:\n' + traceback_string))
+'''
+
 
 class CreateMarkupGroup(graphene.Mutation):
 
@@ -328,7 +331,7 @@ class DeleteMarkupGroup(graphene.Mutation):
 
     class Arguments:
 
-        group_id = LingvodocID(required=True)
+        group_ids = graphene.List(LingvodocID(required=True))
         markups = graphene.List(graphene.List(graphene.Int, required=True))
         perspective_id = LingvodocID()
         debug_flag = graphene.Boolean()
@@ -341,52 +344,69 @@ class DeleteMarkupGroup(graphene.Mutation):
         try:
             client_id = info.context.client_id
 
-            group_id = args.get('group_id')
+            group_ids = args.get('group_ids')
             markups = list2dict(args.get('markups'))
+            perspective_id = args.get('perspective_id')
             debug_flag = args.get('debug_flag', False)
 
             if debug_flag:
-                log.debug(f"{group_id=}\n{markups=}")
+                log.debug(f"{group_ids=}\n{markups=}")
 
             client = DBSession.query(dbClient).filter_by(id=client_id).first()
 
             if not client:
                 return ResponseError('Only authorized users can delete markup groups.')
 
-            group_obj = (
+            group_objs = (
                 DBSession
 
                     .query(dbMarkupGroup)
-                    .filter(dbMarkupGroup.client_id == group_id[0],
-                            dbMarkupGroup.object_id == group_id[1])
-                    .one())
-
-            group_obj.marked_for_deletion = True
-            flag_modified(group_obj, 'marked_for_deletion')
-
-            entity_objs = (
-                DBSession
-
-                    .query(dbEntity)
-                    .filter(tuple_(dbEntity.client_id, dbEntity.object_id).in_(markups))
+                    .filter(tuple_(dbMarkupGroup.client_id, dbMarkupGroup.object_id).in_(group_ids))
                     .all())
+
+            for grp in group_objs:
+                grp.marked_for_deletion = True
+                flag_modified(grp, 'marked_for_deletion')
+
+            entity_objs = []
+
+            if markups:
+
+                entity_objs = (
+                    DBSession
+                        .query(dbEntity)
+                        .filter(tuple_(dbEntity.client_id, dbEntity.object_id).in_(markups))
+                        .all())
+
+            elif perspective_id:
+
+                entity_objs = (
+                    DBSession
+                        .query(dbEntity)
+                        .filter(
+                            dbEntity.parent_id == dbLexicalEntry.id,
+                            dbEntity.marked_for_deletion == False,
+                            dbLexicalEntry.parent_id == perspective_id,
+                            dbLexicalEntry.marked_for_deletion == False)
+                        .all())
 
             for ent in entity_objs:
 
-                markup_objs = ent.additional_metadata.get('markups')
-
-                if not markup_objs:
-                    raise NotImplementedError
+                if type(metadata := ent.additional_metadata) is dict:
+                    markup_objs = metadata.get('markups', [])
+                else:
+                    continue
 
                 for mrk in markup_objs:
-                    offset, _ = mrk[0]
-                    if offset in markups[(ent.client_id, ent.object_id)]:
-                        mrk.remove(group_id)
+                    if not len(mrk):
+                        continue
+
+                    indexes = mrk.pop(0)
+
+                    if set(group_ids) & set(mrk):
+                        ent.additional_metadata['markups'] = (
+                            indexes + [id for id in mrk if id not in group_ids])
                         flag_modified(ent, 'additional_metadata')
-                        break
-                else:
-                    # If no break
-                    raise NotImplementedError
 
             return DeleteMarkupGroup(triumph=True)
 

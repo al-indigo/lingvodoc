@@ -311,7 +311,6 @@ from lingvodoc.schema.gql_userrequest import (
     UserRequest)
 
 from lingvodoc.schema.gql_markups import (
-    #UpdateEntityMarkup,
     CreateMarkupGroup,
     DeleteMarkupGroup,
     Markup,
