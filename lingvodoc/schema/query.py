@@ -5259,8 +5259,8 @@ class Query(graphene.ObjectType):
                     text = content[start_offset : end_offset],
                     offset = start_offset,
                     group_ids = mark,
-                    entity_client_id = cid,
-                    entity_object_id = oid,
+                    #entity_client_id = cid,
+                    #entity_object_id = oid,
                     field_translation = f_name,
                     field_position = f_pos))
 

@@ -39,53 +39,46 @@ class MarkupGroup(graphene.ObjectType):
     author_id = graphene.Int()
     author_name = graphene.String()
     created_at = graphene.Float()
-    dbType = dbMarkupGroup
 
-    @fetch_object()
     def resolve_client_id(self, info):
-        return self.dbObject.client_id
+        return self.client_id
 
-    @fetch_object()
     def resolve_object_id(self, info):
-        return self.dbObject.object_id
+        return self.object_id
 
-    @fetch_object()
     def resolve_perspective_client_id(self, info):
-        return self.dbObject.perspective_client_id
+        return self.perspective_client_id
 
-    @fetch_object()
     def resolve_perspective_object_id(self, info):
-        return self.dbObject.perspective_object_id
+        return self.perspective_object_id
 
-    @fetch_object()
     def resolve_type(self, info):
-        return self.dbObject.type
+        return self.type
 
-    @fetch_object()
     def resolve_author_id(self, info):
         return (
-            DBSession.query(dbClient.user_id).filter_by(id=self.dbObject.client_id).scalar())
+            DBSession.query(dbClient.user_id).filter_by(id=self.client_id).scalar())
 
-    @fetch_object()
     def resolve_author_name(self, info):
         return (
             DBSession
                 .query(dbUser.name)
                 .filter(
                     dbUser.id == dbClient.user_id,
-                    dbClient.id == self.dbObject.client_id)
+                    dbClient.id == self.client_id)
                 .scalar())
 
-    @fetch_object()
     def resolve_created_at(self, info):
-        return self.dbObject.created_at
+        return self.created_at
 
 
 class Markup(graphene.ObjectType):
     field_translation = graphene.String()
     field_position = graphene.Int()
+    '''
     entity_client_id = graphene.Int()
     entity_object_id = graphene.Int()
+    '''
     offset = graphene.Int()
     text = graphene.String()
     id = graphene.String()
@@ -100,13 +93,13 @@ class Markup(graphene.ObjectType):
 
     def resolve_field_position(self, info):
         return self.field_position
-
+    '''
     def resolve_entity_client_id(self, info):
         return self.entity_client_id
 
     def resolve_entity_object_id(self, info):
         return self.entity_object_id
-
+    '''
     def resolve_offset(self, info):
         return self.offset
 
@@ -300,6 +293,9 @@ class CreateMarkupGroup(graphene.Mutation):
                     raise NotImplementedError
 
                 for mrk in markup_objs:
+                    if not len(mrk) or len(mrk[0]) != 2:
+                        continue
+
                     offset, _ = mrk[0]
                     if offset in markups[(ent.client_id, ent.object_id)]:
                         mrk.append([client_id, group_object_id])
