@@ -331,7 +331,7 @@ class DeleteMarkupGroup(graphene.Mutation):
 
     class Arguments:
 
-        group_ids = graphene.List(LingvodocID(required=True))
+        group_ids = graphene.List(LingvodocID, required=True)
         markups = graphene.List(graphene.List(graphene.Int, required=True))
         perspective_id = LingvodocID()
         debug_flag = graphene.Boolean()

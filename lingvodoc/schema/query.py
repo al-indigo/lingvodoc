@@ -5263,7 +5263,7 @@ class Query(graphene.ObjectType):
                     field_translation = f_name,
                     field_position = f_pos))
 
-        result.sort(key=attrgetter('field_position', 'field_translation', 'text'))
+        result.sort(key=attrgetter('field_position', 'text'))
 
         return result
 
