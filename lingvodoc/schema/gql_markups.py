@@ -137,13 +137,18 @@ class Markup(graphene.ObjectType):
 
         return markup_groups
 
+
 def list2dict(markup_list):
     markup_dict = collections.defaultdict(list)
 
-    for (cid, oid, offset) in markup_list:
+    for (cid, oid, offset) in (markup_list or []):
         markup_dict[(cid, oid)].append(offset)
 
     return markup_dict
+
+
+def list2tuple(group_list):
+    return [tuple(g) for g in (group_list or [])]
 
 '''
 class UpdateEntityMarkup(graphene.Mutation):
@@ -301,7 +306,7 @@ class CreateMarkupGroup(graphene.Mutation):
 
                     offset, _ = mrk[0]
                     if offset in markups[(ent.client_id, ent.object_id)]:
-                        mrk.append([client_id, group_object_id])
+                        mrk.append([client_id, group_object_id])  # this really works?!
                         flag_modified(ent, 'additional_metadata')
                         break
                 else:
@@ -397,15 +402,15 @@ class DeleteMarkupGroup(graphene.Mutation):
                 else:
                     continue
 
-                for mrk in markup_objs:
+                for i, mrk in enumerate(markup_objs):
                     if not len(mrk):
                         continue
 
                     indexes = mrk.pop(0)
 
-                    if set(group_ids) & set(mrk):
-                        ent.additional_metadata['markups'] = (
-                            indexes + [id for id in mrk if id not in group_ids])
+                    if set(list2tuple(group_ids)) & set(list2tuple(mrk)):
+                        ent.additional_metadata['markups'][i] = (
+                            [indexes + [id for id in mrk if id not in group_ids]])
                         flag_modified(ent, 'additional_metadata')
 
             return DeleteMarkupGroup(triumph=True)
