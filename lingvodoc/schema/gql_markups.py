@@ -133,6 +133,8 @@ class Markup(graphene.ObjectType):
                     ).in_(self.group_ids),
                     dbMarkupGroup.marked_for_deletion == False,
                     *custom_filters)
+                .order_by(
+                    dbMarkupGroup.created_at)
                 .all())
 
         return markup_groups
