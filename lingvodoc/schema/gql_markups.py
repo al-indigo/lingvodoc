@@ -338,11 +338,12 @@ class DeleteMarkupGroup(graphene.Mutation):
 
     class Arguments:
 
-        group_ids = graphene.List(LingvodocID, required=True)
+        group_ids = graphene.List(graphene.List(graphene.Int, required=True))
         markups = graphene.List(graphene.List(graphene.Int, required=True))
         perspective_id = LingvodocID()
         debug_flag = graphene.Boolean()
 
+    entry_ids = graphene.List(LingvodocID)
     triumph = graphene.Boolean()
 
     @staticmethod
@@ -397,6 +398,8 @@ class DeleteMarkupGroup(graphene.Mutation):
                             dbLexicalEntry.marked_for_deletion == False)
                         .all())
 
+            entry_ids = set()
+
             for ent in entity_objs:
 
                 if type(metadata := ent.additional_metadata) is dict:
@@ -413,9 +416,10 @@ class DeleteMarkupGroup(graphene.Mutation):
                     if set(list2tuple(group_ids)) & set(list2tuple(mrk)):
                         ent.additional_metadata['markups'][i] = (
                             [indexes + [id for id in mrk if id not in group_ids]])
+                        entry_ids.add(ent.parent_id)
                         flag_modified(ent, 'additional_metadata')
 
-            return DeleteMarkupGroup(triumph=True)
+            return DeleteMarkupGroup(triumph=True, entry_ids=list(entry_ids))
 
         except Exception as exception:
 
