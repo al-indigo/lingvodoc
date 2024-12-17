@@ -251,6 +251,7 @@ class CreateMarkupGroup(graphene.Mutation):
         perspective_id = LingvodocID(required=True)
         debug_flag = graphene.Boolean()
 
+    entry_ids = graphene.List(LingvodocID)
     triumph = graphene.Boolean()
 
     @staticmethod
@@ -295,6 +296,8 @@ class CreateMarkupGroup(graphene.Mutation):
                     .filter(tuple_(dbEntity.client_id, dbEntity.object_id).in_(markups))
                     .all())
 
+            entry_ids = set()
+
             for ent in entity_objs:
 
                 markup_objs = ent.additional_metadata.get('markups')
@@ -309,13 +312,14 @@ class CreateMarkupGroup(graphene.Mutation):
                     offset, _ = mrk[0]
                     if offset in markups[(ent.client_id, ent.object_id)]:
                         mrk.append([client_id, group_object_id])  # this really works?!
+                        entry_ids.add(ent.parent_id)
                         flag_modified(ent, 'additional_metadata')
                         break
                 else:
                     # If no break
                     raise NotImplementedError
 
-            return CreateMarkupGroup(triumph=True)
+            return CreateMarkupGroup(triumph=True, entry_ids=list(entry_ids))
 
         except Exception as exception:
 
