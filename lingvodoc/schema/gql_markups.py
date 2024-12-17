@@ -125,7 +125,7 @@ class Markup(graphene.ObjectType):
                     *custom_filters)
                 .order_by(
                     dbMarkupGroup.created_at)
-                .all())
+                .all()) if len(self.group_ids) else []
 
         return markup_groups
 
@@ -409,7 +409,7 @@ class DeleteMarkupGroup(graphene.Mutation):
 
                     if set(list2tuple(group_ids)) & set(list2tuple(mrk)):
                         ent.additional_metadata['markups'][i] = (
-                            [indexes + [id for id in mrk if id not in group_ids]])
+                            [indexes] + [id for id in mrk if id not in group_ids])
                         entry_ids.add(ent.parent_id)
                         flag_modified(ent, 'additional_metadata')
 
