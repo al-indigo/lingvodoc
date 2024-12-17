@@ -75,10 +75,6 @@ class MarkupGroup(graphene.ObjectType):
 class Markup(graphene.ObjectType):
     field_translation = graphene.String()
     field_position = graphene.Int()
-    '''
-    entity_client_id = graphene.Int()
-    entity_object_id = graphene.Int()
-    '''
     offset = graphene.Int()
     text = graphene.String()
     id = graphene.String()
@@ -93,13 +89,7 @@ class Markup(graphene.ObjectType):
 
     def resolve_field_position(self, info):
         return self.field_position
-    '''
-    def resolve_entity_client_id(self, info):
-        return self.entity_client_id
 
-    def resolve_entity_object_id(self, info):
-        return self.entity_object_id
-    '''
     def resolve_offset(self, info):
         return self.offset
 

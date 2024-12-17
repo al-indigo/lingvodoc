@@ -998,7 +998,7 @@ class Metadata(graphene.ObjectType):
 
     uploaded_at = graphene.String()
 
-    markups = graphene.List(graphene.List(LingvodocID))
+    markups = graphene.List(ObjectVal)
 
 metadata_key_set = {
 

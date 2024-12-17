@@ -1276,7 +1276,7 @@ class UpdateEntityContent(graphene.Mutation):
         """
         id = LingvodocID()
         content = graphene.String()
-        markups = graphene.List(graphene.List(LingvodocID))
+        markups = graphene.List(ObjectVal)
         lexgraph_before = graphene.String()
         lexgraph_after = graphene.String()
 
