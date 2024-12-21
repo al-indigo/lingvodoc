@@ -2,8 +2,13 @@
 # Standard library imports.
 import collections
 import datetime
-import traceback
+import io
 import logging
+import os
+import shutil
+import time
+import traceback
+import xlsxwriter
 
 import graphene.types
 
@@ -18,9 +23,12 @@ from lingvodoc.models import (
     LexicalEntry as dbLexicalEntry,
     get_client_counter)
 
+from lingvodoc.utils import sanitize_worksheet_name
+
 from lingvodoc.schema.gql_holders import (
     LingvodocID,
-    ResponseError)
+    ResponseError,
+    ObjectVal)
 
 from sqlalchemy import (tuple_)
 
@@ -424,6 +432,132 @@ class DeleteMarkupGroup(graphene.Mutation):
                         exception, exception, exception.__traceback__))[:-1])
 
             log.warning('delete_markup_group: exception')
+            log.warning(traceback_string)
+
+            return (
+
+                ResponseError(
+                    'Exception:\n' + traceback_string))
+
+
+class SaveMarkupGroups(graphene.Mutation):
+
+    class Arguments:
+
+        base_name = graphene.String(required=True)
+        field_list = graphene.List(ObjectVal, required=True)
+        group_list = graphene.List(ObjectVal, required=True)
+        debug_flag = graphene.Boolean()
+
+    xlsx_url = graphene.String()
+    message = graphene.String()
+    triumph = graphene.Boolean()
+
+    # Writing xlsx with any number of source fields
+    @staticmethod
+    def write_xlsx(field_list, group_list):
+
+        workbook_stream = (
+            io.BytesIO())
+
+        workbook = (
+            xlsxwriter.Workbook(
+                workbook_stream, {'in_memory': True}))
+
+        worksheet = (
+            workbook.add_worksheet(
+                sanitize_worksheet_name('Markup groups')))
+
+        bold = workbook.add_format({'bold': True})
+        align = workbook.add_format()
+        align.set_align('vcenter')
+        align.set_text_wrap()
+
+        worksheet.set_column(0, len(field_list) - 1, 50)
+        worksheet.set_column(len(field_list), len(field_list) + 1, 20)
+
+        for column, item in enumerate(field_list + ['Type', 'Author']):
+            worksheet.write(0, column, item, bold)
+
+        for row, group in enumerate(group_list, 1):
+            text = group.get('text', "")
+            type = group.get('type', "n/a")
+            author = group.get('author', "n/a")
+
+            max_len = max(map(lambda t: len(t), text))
+            max_lines = max(map(lambda t: len(t.splitlines()), text))
+            h1 = (max_len // 50 + 1) * 17
+            h2 = max_lines * 17
+            worksheet.set_row(row, max(h1, h2))
+            for column, item in enumerate(text + [type, author]):
+                worksheet.write(row, column, item, align)
+
+        workbook.close()
+        return workbook_stream
+
+    @staticmethod
+    def save_xlsx(info, xlsx_filename, xlsx_stream, section_name='markup_groups'):
+
+        storage = info.context.request.registry.settings['storage']
+        time_str = '{0:.6f}'.format(time.time())
+
+        storage_dir = (
+
+            os.path.join(
+                storage['path'],
+                section_name,
+                time_str))
+
+        os.makedirs(storage_dir, exist_ok=True)
+
+        xlsx_path = os.path.join(
+            storage_dir, xlsx_filename)
+
+        with open(xlsx_path, 'wb') as xlsx_file:
+            xlsx_stream.seek(0)
+            shutil.copyfileobj(xlsx_stream, xlsx_file)
+
+        return ''.join([
+            storage['prefix'],
+            storage['static_route'],
+            section_name, '/',
+            time_str, '/',
+            xlsx_filename])
+
+    @staticmethod
+    def mutate(root, info, **args):
+
+        try:
+            client_id = info.context.client_id
+
+            base_name = args.get('base_name')
+            field_list = args.get('field_list')
+            group_list = args.get('group_list')
+            debug_flag = args.get('debug_flag', False)
+
+            if debug_flag:
+                log.debug(f"{base_name=}\n{field_list=}\n{group_list=}")
+
+            client = DBSession.query(dbClient).filter_by(id=client_id).first()
+
+            if not client:
+                return ResponseError('Only authorized users can save markup groups.')
+
+            xlsx_stream = SaveMarkupGroups.write_xlsx(field_list, group_list)
+            xlsx_url = SaveMarkupGroups.save_xlsx(info, f'{base_name}.xlsx', xlsx_stream)
+            message = ""
+
+            return SaveMarkupGroups(triumph=True, xlsx_url=xlsx_url, message=message)
+
+        except Exception as exception:
+
+            traceback_string = (
+
+                ''.join(
+                    traceback.format_exception(
+                        exception, exception, exception.__traceback__))[:-1])
+
+            log.warning('save_markup_groups: exception')
             log.warning(traceback_string)
 
             return (

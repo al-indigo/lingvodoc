@@ -313,6 +313,7 @@ from lingvodoc.schema.gql_userrequest import (
 from lingvodoc.schema.gql_markups import (
     CreateMarkupGroup,
     DeleteMarkupGroup,
+    SaveMarkupGroups,
     Markup,
     MarkupGroup)
 
@@ -9164,9 +9165,9 @@ class MyMutations(graphene.ObjectType):
     cognates_summary = CognatesSummary.Field()
     complex_distance = ComplexDistance.Field()
     tsakorpus = Tsakorpus.Field()
-    #update_entity_markup = UpdateEntityMarkup.Field()
     create_markup_group = CreateMarkupGroup.Field()
     delete_markup_group = DeleteMarkupGroup.Field()
+    save_markup_groups = SaveMarkupGroups.Field()
 
 schema = graphene.Schema(
     query=Query,
