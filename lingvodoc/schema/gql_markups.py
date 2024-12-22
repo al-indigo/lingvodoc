@@ -475,8 +475,8 @@ class SaveMarkupGroups(graphene.Mutation):
         align.set_align('vcenter')
         align.set_text_wrap()
 
-        worksheet.set_column(0, len(field_list) - 1, 50)
-        worksheet.set_column(len(field_list), len(field_list) + 1, 20)
+        worksheet.set_column(0, len(field_list) - 3, 50)
+        worksheet.set_column(len(field_list) - 2, len(field_list) - 1, 25)
 
         for column, item in enumerate(field_list):
             worksheet.write(0, column, item, bold)
