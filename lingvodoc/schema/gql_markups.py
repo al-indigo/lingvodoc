@@ -8,6 +8,7 @@ import os
 import shutil
 import time
 import traceback
+import urllib.parse
 import xlsxwriter
 
 import graphene.types
@@ -16,6 +17,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from lingvodoc.models import (
     DBSession,
+    DictionaryPerspective as dbDictionaryPerspective,
     Entity as dbEntity,
     User as dbUser,
     MarkupGroup as dbMarkupGroup,
@@ -444,7 +446,7 @@ class SaveMarkupGroups(graphene.Mutation):
 
     class Arguments:
 
-        base_name = graphene.String(required=True)
+        perspective_id = LingvodocID(required=True)
         field_list = graphene.List(ObjectVal, required=True)
         group_list = graphene.List(ObjectVal, required=True)
         debug_flag = graphene.Boolean()
@@ -476,7 +478,7 @@ class SaveMarkupGroups(graphene.Mutation):
         worksheet.set_column(0, len(field_list) - 1, 50)
         worksheet.set_column(len(field_list), len(field_list) + 1, 20)
 
-        for column, item in enumerate(field_list + ['Type', 'Author']):
+        for column, item in enumerate(field_list):
             worksheet.write(0, column, item, bold)
 
         for row, group in enumerate(group_list, 1):
@@ -496,9 +498,10 @@ class SaveMarkupGroups(graphene.Mutation):
         return workbook_stream
 
     @staticmethod
-    def save_xlsx(info, xlsx_filename, xlsx_stream, section_name='markup_groups'):
+    def save_xlsx(info, perspective_id, xlsx_stream, section_name='markup_groups'):
 
         storage = info.context.request.registry.settings['storage']
+        locale_id = info.context.locale_id
         time_str = '{0:.6f}'.format(time.time())
 
         storage_dir = (
@@ -509,6 +512,14 @@ class SaveMarkupGroups(graphene.Mutation):
                 time_str))
 
         os.makedirs(storage_dir, exist_ok=True)
+
+        db_perspective = (
+            DBSession
+                .query(dbDictionaryPerspective)
+                .filter_by(id=perspective_id)
+                .one())
+
+        xlsx_filename = f'{db_perspective.parent.get_translation(locale_id)} (markup groups).xlsx'
 
         xlsx_path = os.path.join(
             storage_dir, xlsx_filename)
@@ -522,7 +533,7 @@ class SaveMarkupGroups(graphene.Mutation):
             storage['static_route'],
             section_name, '/',
             time_str, '/',
-            xlsx_filename])
+            urllib.parse.quote(xlsx_filename)])
 
     @staticmethod
     def mutate(root, info, **args):
@@ -530,13 +541,13 @@ class SaveMarkupGroups(graphene.Mutation):
         try:
             client_id = info.context.client_id
 
-            base_name = args.get('base_name')
+            perspective_id = args.get('perspective_id')
             field_list = args.get('field_list')
             group_list = args.get('group_list')
             debug_flag = args.get('debug_flag', False)
 
             if debug_flag:
-                log.debug(f"{base_name=}\n{field_list=}\n{group_list=}")
+                log.debug(f"{perspective_id=}\n{field_list=}\n{group_list=}")
 
             client = DBSession.query(dbClient).filter_by(id=client_id).first()
 
@@ -544,7 +555,7 @@ class SaveMarkupGroups(graphene.Mutation):
                 return ResponseError('Only authorized users can save markup groups.')
 
             xlsx_stream = SaveMarkupGroups.write_xlsx(field_list, group_list)
-            xlsx_url = SaveMarkupGroups.save_xlsx(info, f'{base_name}.xlsx', xlsx_stream)
+            xlsx_url = SaveMarkupGroups.save_xlsx(info, perspective_id, xlsx_stream)
             message = ""
 
             return SaveMarkupGroups(triumph=True, xlsx_url=xlsx_url, message=message)
