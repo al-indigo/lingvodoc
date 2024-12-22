@@ -96,6 +96,8 @@ import lingvodoc.models as models
 
 from lingvodoc.models import (
     RUSSIAN_LOCALE,
+    AdverbAnnotationData as dbAdverbAnnotationData,
+    AdverbInstanceData as dbAdverbInstanceData,
     BaseGroup as dbBaseGroup,
     Client,
     DBSession,
@@ -129,8 +131,7 @@ from lingvodoc.models import (
     ValencyParserData as dbValencyParserData,
     ValencySentenceData as dbValencySentenceData,
     ValencySourceData as dbValencySourceData,
-    AdverbAnnotationData as dbAdverbAnnotationData,
-    AdverbInstanceData as dbAdverbInstanceData)
+    get_client_counter)
 
 from lingvodoc.queue.celery import celery
 
@@ -309,6 +310,13 @@ from lingvodoc.schema.gql_userrequest import (
     ParticipateOrg,
     UserRequest)
 
+from lingvodoc.schema.gql_markups import (
+    CreateMarkupGroup,
+    DeleteMarkupGroup,
+    SaveMarkupGroups,
+    Markup,
+    MarkupGroup)
+
 from lingvodoc.scripts import elan_parser
 
 import lingvodoc.scripts.adverb as adverb
@@ -362,6 +370,8 @@ from lingvodoc.views.v2.utils import (
     anonymous_userid,
     storage_file,
     view_field_from_object)
+
+from operator import attrgetter
 
 from pdb import set_trace as A
 
@@ -666,6 +676,11 @@ class Query(graphene.ObjectType):
             debug_flag = graphene.Boolean()))
 
     fill_logs = graphene.String(worker = graphene.Int())
+
+    markups = (
+        graphene.List(
+            Markup,
+            perspective_id = LingvodocID(required = True)))
 
     def resolve_fill_logs(self, info, worker=1):
         # Check if the current user is administrator
@@ -5188,6 +5203,71 @@ class Query(graphene.ObjectType):
 
         return result_dict
 
+    def resolve_markups(self,
+                        info,
+                        perspective_id):
+
+        locale_id = info.context.locale_id
+
+        entities = (
+            DBSession
+                .query(
+                    dbEntity.client_id,
+                    dbEntity.object_id,
+                    dbEntity.content,
+                    dbEntity.additional_metadata,
+                    dbTranslationAtom.content,
+                    dbColumn.position)
+                .filter(
+                    dbColumn.parent_id == perspective_id,
+                    #dbColumn.position.in_([2,3]),
+                    dbColumn.field_id == dbField.id,
+                    dbColumn.marked_for_deletion == False,
+                    dbTranslationAtom.locale_id == locale_id,
+                    dbTranslationAtom.parent_id == dbTranslationGist.id,
+                    dbTranslationAtom.marked_for_deletion == False,
+                    dbTranslationGist.id == dbField.translation_gist_id,
+                    dbTranslationGist.marked_for_deletion == False,
+                    dbField.id == dbEntity.field_id,
+                    dbEntity.parent_id == dbLexicalEntry.id,
+                    dbEntity.marked_for_deletion == False,
+                    dbLexicalEntry.parent_id == perspective_id,
+                    dbLexicalEntry.marked_for_deletion == False)
+                #.order_by(
+                #    dbColumn.position)
+                .all())
+
+        result = []
+
+        for (cid, oid, content, meta, f_name, f_pos) in entities:
+
+            markups = meta.get('markups', []) if type(meta) is dict else []
+
+            for mark in markups:
+
+                # Because of markups argument type 'graphene.List(graphene.List(LingvodocID))'
+                # we have to use '[[]]' structure for empty markups set, so one empty markup
+                # exists any way
+                if not len(mark) or len(mark[0]) != 2:
+                    continue
+
+                # First pair in markup record is markup offset, next ones are group ids if any
+                start_offset, end_offset = mark.pop(0)
+
+                result.append(Markup(
+                    id = f'{cid}_{oid}_{start_offset}',
+                    text = content[start_offset : end_offset],
+                    offset = start_offset,
+                    group_ids = mark,
+                    #entity_client_id = cid,
+                    #entity_object_id = oid,
+                    field_translation = f_name,
+                    field_position = f_pos))
+
+        result.sort(key=attrgetter('field_position', 'text'))
+
+        return result
+
 class PerspectivesAndFields(graphene.InputObjectType):
     perspective_id = LingvodocID()
     field_id = LingvodocID()
@@ -8364,9 +8444,9 @@ class Tsakorpus(graphene.Mutation):
                     dbPerspective.id == perspective_id,
                     dbPerspective.marked_for_deletion == False)
 
-                .one())
+                .scalar())
 
-        corpus_uploaded_at = metadata[0].get('uploaded_at') if type(metadata[0]) is dict else None
+        corpus_uploaded_at = metadata.get('uploaded_at') if type(metadata) is dict else None
 
         entity_cte = (
 
@@ -9085,6 +9165,9 @@ class MyMutations(graphene.ObjectType):
     cognates_summary = CognatesSummary.Field()
     complex_distance = ComplexDistance.Field()
     tsakorpus = Tsakorpus.Field()
+    create_markup_group = CreateMarkupGroup.Field()
+    delete_markup_group = DeleteMarkupGroup.Field()
+    save_markup_groups = SaveMarkupGroups.Field()
 
 schema = graphene.Schema(
     query=Query,
