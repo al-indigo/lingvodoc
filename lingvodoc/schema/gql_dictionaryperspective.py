@@ -209,7 +209,7 @@ def graphene_track_multiple(
     new_entities_result = []
     entry_total_count = 0
 
-    if created_entries:
+    if created_entries and not filter:
 
         new_entities_result = (
 
@@ -244,6 +244,14 @@ def graphene_track_multiple(
 
                 .all())
 
+        # Skipping already retrieved entities if we have some.
+
+        data_query = (
+
+            data_query.filter(
+                dbLexicalEntry.id.notin_(
+                    ids_to_id_query(created_entries))))
+
         entry_total_count += (
             len(new_entities_result))
 
@@ -263,16 +271,6 @@ def graphene_track_multiple(
                 dbPerspective.marked_for_deletion == False,
                 dbPerspective.parent_id == dbDictionary.id,
                 dbDictionary.marked_for_deletion == False))
-
-    # Skipping already retrieved entities if we have some.
-
-    if created_entries:
-
-        data_query = (
-
-            data_query.filter(
-                dbLexicalEntry.id.notin_(
-                    ids_to_id_query(created_entries))))
 
     # We'll either get total entry count now or after filtering.
 
@@ -490,7 +488,7 @@ def graphene_track_multiple(
 
     # General sorting things.
 
-    if is_ascending:
+    if is_ascending or not sort_by_field:
 
         agg_f = func.min
         bool_f = func.bool_and
