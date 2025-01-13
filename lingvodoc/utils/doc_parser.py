@@ -474,6 +474,9 @@ def apertium_tuv(dedoc_output, apertium_path):
 def apertium_hye(dedoc_output, apertium_path):
     return apertium_parser(dedoc_output, apertium_path, 'hye')
 
+def apertium_krc(dedoc_output, apertium_path):
+    return apertium_parser(dedoc_output, apertium_path, 'krc')
+
 def hfst_kalmyk(dedoc_output):
     return hfst_parser(dedoc_output, 'xal')
 
