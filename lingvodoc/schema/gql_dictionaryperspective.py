@@ -1507,6 +1507,10 @@ class DictionaryPerspective(LingvodocObjectType):
             publish = True
             accept = True
             delete = False
+        elif mode == 'unpublished':
+            publish = False
+            accept = True
+            delete = False
         elif mode == 'not_accepted':
             publish = None
             accept = False
@@ -1530,7 +1534,7 @@ class DictionaryPerspective(LingvodocObjectType):
             info.context.acl_check('view', 'lexical_entries_and_entities',
                                    (self.dbObject.client_id, self.dbObject.object_id))
         else:
-            raise ResponseError(message="mode: <all|published|not_accepted|deleted|all_with_deleted>")
+            raise ResponseError(message="mode: <all|published|unpublished|not_accepted|deleted|all_with_deleted>")
 
         lexes = (
 
