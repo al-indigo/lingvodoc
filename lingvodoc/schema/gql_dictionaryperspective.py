@@ -1083,11 +1083,14 @@ class DictionaryPerspective(LingvodocObjectType):
         elif mode == 'published':
             counter_query = lexes.filter(dbPublishingEntity.published == True, dbLexicalEntry.marked_for_deletion == False,
                                  dbEntity.marked_for_deletion == False)
+        elif mode == 'unpublished':
+            counter_query = lexes.filter(dbPublishingEntity.published == False, dbLexicalEntry.marked_for_deletion == False,
+                                 dbEntity.marked_for_deletion == False)
         elif mode == 'not_accepted':
             counter_query = lexes.filter(dbPublishingEntity.accepted == False, dbLexicalEntry.marked_for_deletion == False,
                                  dbEntity.marked_for_deletion == False)
         else:
-            raise ResponseError(message="mode: <all|published|not_accepted>")
+            raise ResponseError(message="mode: <all|published|unpublished|not_accepted>")
         counter = counter_query.group_by(dbLexicalEntry.id).count()
         return counter
 

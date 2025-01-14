@@ -111,6 +111,9 @@ class LexicalEntry(LingvodocObjectType):
         elif mode == 'published':
             publish = True
             accept = True
+        elif mode == 'unpublished':
+            publish = False
+            accept = True
         elif mode == 'not_accepted':
             publish = None
             accept = False
@@ -121,7 +124,7 @@ class LexicalEntry(LingvodocObjectType):
             publish = None
             accept = None
         else:
-            raise ResponseError(message="mode: <all|published|not_accepted>")
+            raise ResponseError(message="mode: <all|published|unpublished|not_accepted>")
 
         result = list()
         entities = DBSession.query(dbEntity, dbPublishingEntity).\
