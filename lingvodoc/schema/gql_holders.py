@@ -999,6 +999,7 @@ class Metadata(graphene.ObjectType):
     uploaded_at = graphene.String()
 
     markups = graphene.List(ObjectVal)
+    stars = ObjectVal()
 
 metadata_key_set = {
 

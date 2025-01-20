@@ -64,7 +64,8 @@ from sqlalchemy import (
     or_,
     tuple_,
     union,
-    desc)
+    desc,
+    literal)
 
 import sqlalchemy.dialects.postgresql as postgresql
 
@@ -2161,9 +2162,18 @@ class Query(graphene.ObjectType):
 
         if category is not None:
             dbdicts = dbdicts.filter(dbDictionary.category == category)
-        dbdicts = dbdicts.order_by(dbDictionary.created_at.desc())
+
         if mode is not None and client:
             user = DBSession.query(dbUser).filter_by(id=client.user_id).first()
+
+            dbdicts = dbdicts.add_columns(
+                func.coalesce(
+                    dbDictionary.additional_metadata[('stars', user.id, 0)],
+                    literal('0')).label('starred'))
+
+            dbdicts = dbdicts.order_by(
+                desc('starred'),
+                dbDictionary.created_at.desc())
 
             if not mode:
                 # my dictionaries
@@ -2212,10 +2222,17 @@ class Query(graphene.ObjectType):
                                         .in_(group_tuples[i : i + 1000]))
                                 .all())
 
-                    dbdicts = [o for o in dbdicts if (o.client_id, o.object_id) in dictstemp_set]
+                    dbdicts = [o for o in dbdicts if (o[0].client_id, o[0].object_id) in dictstemp_set]
+        else:
+            dbdicts = dbdicts.order_by(dbDictionary.created_at.desc())
 
         dictionaries_list = list()
         for dbdict in dbdicts:
+
+            # If we have additional column for ordering, we get the first one
+            if type(dbdict).__name__ == 'result':
+                dbdict = dbdict[0]
+
             gql_dict = Dictionary(id=[dbdict.client_id, dbdict.object_id])
             gql_dict.dbObject = dbdict
             dictionaries_list.append(gql_dict)
