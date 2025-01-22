@@ -2223,6 +2223,10 @@ class Query(graphene.ObjectType):
                                 .all())
 
                     dbdicts = [o for o in dbdicts if (o[0].client_id, o[0].object_id) in dictstemp_set]
+
+            if mode == 2:
+                dbdicts = [o for o in dbdicts if o[1] > 0]
+
         else:
             dbdicts = dbdicts.order_by(dbDictionary.created_at.desc())
 
