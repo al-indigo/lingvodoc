@@ -623,6 +623,8 @@ def search_mechanism(
 
             return result_lexical_entries, res_perspectives, res_dictionaries
 
+    # Base set of lexical entries we'd be searching in.
+
     lexes = (
 
         DBSession
@@ -644,25 +646,10 @@ def search_mechanism(
                     .in_(
                         DBSession.query(dictionaries.cte()))))
 
-    if adopted is not None or etymology is not None:
-        lexes.join(dbLexicalEntry.entity)
-        if adopted is False:
-            lexes = lexes.filter(~func.lower(dbEntity.content).contains('заим.%'))
-        elif adopted:
-            lexes = lexes.filter(func.lower(dbEntity.content).contains('заим.%'))
-        if etymology is not None:
-            gist = translation_gist_search('Grouping Tag')
-            fields = DBSession.query(dbField.client_id, dbField.object_id).filter(
-                tuple_(dbField.data_type_translation_gist_client_id,
-                       dbField.data_type_translation_gist_object_id) == (gist.client_id, gist.object_id))
-            if etymology:
-                lexes = lexes.filter(not_(tuple_(dbEntity.field_client_id, dbEntity.field_object_id).in_(fields)))
-            else:
-                lexes = lexes.filter(tuple_(dbEntity.field_client_id, dbEntity.field_object_id).in_(fields))
-
     lexes_cte = lexes.cte()
 
-    # get all_entity_content_filter
+    # Base set of entities we'd be searching in, from filtering of everything by fields and entity content
+    # conditions.
 
     all_entity_content_filter = list()
     all_block_field_set = set()
@@ -678,75 +665,32 @@ def search_mechanism(
         xform_func = func.lower
         xform_bag_func = func.lower_bag
 
-    if category == 0:
+    # Entity content conditions.
 
-        for search_block in search_strings:
+    for search_block in search_strings:
+
+        if category != 1:
 
             all_block_field_set.update(
                 tuple(sb.get('field_id')) for sb in search_block if sb.get('field_id'))
 
-            for search_string in search_block:
+        for search_string in search_block:
 
-                search_value = (
-                    search_string['search_string'])
+            search_value = (
+                search_string['search_string'])
 
-                if not search_string.get('field_id'):
+            if not search_string.get('field_id'):
 
-                    fields_flag = False
+                fields_flag = False
 
-                if search_string.get('matching_type') == 'substring':
+            matching_type = (
+                search_string.get('matching_type'))
 
-                    curr_bs_search_blocks = (
-                        boolean_search(search_value))
+            # Corpora.
 
-                    for ss in chain.from_iterable(curr_bs_search_blocks):
+            if category == 1:
 
-                        xform_ss = xform_func(ss['search_string'])
-
-                        if ss.get('matching_type') == 'substring':
-
-                            all_entity_content_filter.append(
-                                xform_func(dbEntity.content)
-                                    .like(xform_ss))
-
-                        elif ss.get('matching_type') == 'full_string':
-
-                            all_entity_content_filter.append(
-                                xform_func(dbEntity.content) ==
-                                    xform_ss)
-
-                        elif ss.get('matching_type') == 'regexp':
-
-                            all_entity_content_filter.append(
-                                xform_func(dbEntity.content)
-                                    .op('~*')(xform_ss))
-
-                elif search_string.get('matching_type') == 'full_string':
-
-                    all_entity_content_filter.append(
-                        xform_func(dbEntity.content) ==
-                            xform_func(search_value))
-
-                elif search_string.get('matching_type') == 'regexp':
-
-                    all_entity_content_filter.append(
-                        xform_func(dbEntity.content)
-                            .op('~*')(xform_func(search_value)))
-
-    elif category == 1:
-
-        for search_block in search_strings:
-
-            for search_string in search_block:
-
-                search_value = (
-                    search_string['search_string'])
-
-                if not search_string.get('field_id'):
-
-                    fields_flag = False
-
-                if search_string.get('matching_type') == 'substring':
+                if matching_type == 'substring':
 
                     curr_bs_search_blocks = (
                         boolean_search(search_value))
@@ -773,19 +717,64 @@ def search_mechanism(
                                 xform_func(dbEntity.additional_metadata['bag_of_words'].astext)
                                     .op('~*')(xform_ss))
 
-                elif search_string.get('matching_type') == 'full_string':
+                elif matching_type == 'full_string':
 
                     all_entity_content_filter.append(
                         xform_bag_func(dbEntity.additional_metadata['bag_of_words'])
                             .op('@>')(func.to_jsonb(xform_func(search_value))))
 
-                elif search_string.get('matching_type') == 'regexp':
+                elif matching_type == 'regexp':
 
                     all_entity_content_filter.append(
                         xform_func(dbEntity.additional_metadata['bag_of_words'].astext)
                             .op('~*')(xform_func(search_value)))
 
-    if fields_flag and category == 0:
+            # Can have category other than 0 or 1, e.g. 2 for morphological dictionaries.
+
+            else:
+
+                if matching_type == 'substring':
+
+                    curr_bs_search_blocks = (
+                        boolean_search(search_value))
+
+                    for ss in chain.from_iterable(curr_bs_search_blocks):
+
+                        xform_ss = xform_func(ss['search_string'])
+
+                        if ss.get('matching_type') == 'substring':
+
+                            all_entity_content_filter.append(
+                                xform_func(dbEntity.content)
+                                    .like(xform_ss))
+
+                        elif ss.get('matching_type') == 'full_string':
+
+                            all_entity_content_filter.append(
+                                xform_func(dbEntity.content) ==
+                                    xform_ss)
+
+                        elif ss.get('matching_type') == 'regexp':
+
+                            all_entity_content_filter.append(
+                                xform_func(dbEntity.content)
+                                    .op('~*')(xform_ss))
+
+                elif matching_type == 'full_string':
+
+                    all_entity_content_filter.append(
+                        xform_func(dbEntity.content) ==
+                            xform_func(search_value))
+
+                elif matching_type == 'regexp':
+
+                    all_entity_content_filter.append(
+                        xform_func(dbEntity.content)
+                            .op('~*')(xform_func(search_value)))
+
+    # Field conditions.
+
+    if fields_flag and category != 1:
 
         all_block_field_cte = ids_to_id_cte(all_block_field_set)
 
@@ -822,30 +811,53 @@ def search_mechanism(
 
     # filter unused entitities
 
-    field_filter = True
-    select_query = []
-    if field_filter:
-        select_query += [dbEntity.field_client_id, dbEntity.field_object_id]
-    if category == 1:
-        select_query += [dbEntity.additional_metadata]
-    else:
-        select_query += [dbEntity.content]
-    published_filter = []
-    if accept is not None:
-        published_filter += [dbPublishingEntity.accepted == accept]
-    if publish is not None:
-        published_filter += [dbPublishingEntity.published == publish]
-    if published_filter:
-        published_to_entity = [dbPublishingEntity.client_id == dbEntity.client_id,
-         dbPublishingEntity.object_id == dbEntity.object_id]
-        published_filter = published_to_entity + published_filter
+    select_query = [
+        dbEntity.field_client_id,
+        dbEntity.field_object_id]
 
-        all_entities_cte = DBSession.query(dbEntity.parent_client_id,
-                                       dbEntity.parent_object_id,
-                                       *select_query).filter(
+    if category == 1:
+
+        select_query.append(
+            dbEntity.additional_metadata)
+
+    else:
+
+        select_query.append(dbEntity.content)
+
+    published_filter = []
+
+    if accept is not None:
+
+        published_filter.append(
+            dbPublishingEntity.accepted == accept)
+
+    if publish is not None:
+
+        published_filter.append(
+            dbPublishingEntity.published == publish)
+
+    if published_filter:
+
+        published_filter.append(
+            dbPublishingEntity.id == dbEntity.id)
+
+    all_entities_cte = (
+
+        DBSession
+
+            .query(
+                lexes_cte.c.client_id.label('entry_client_id'),
+                lexes_cte.c.object_id.label('entry_object_id'),
+                *select_query)
+
+            .filter(
+                dbEntity.parent_client_id == lexes_cte.c.client_id,
+                dbEntity.parent_object_id == lexes_cte.c.object_id,
                 dbEntity.marked_for_deletion == False,
                 *published_filter,
-                all_entity_content_filter).cte()  # only published entities
+                all_entity_content_filter)
+
+            .cte())
 
     # old mechanism + cte
 
@@ -887,6 +899,8 @@ def search_mechanism(
             search_value = (
                 search_string['search_string'])
 
+            # Corpora.
+
             if category == 1:
 
                 if matching_type == 'full_string':
@@ -927,6 +941,8 @@ def search_mechanism(
                     inner_and.append(
                         xform_func(cur_dbEntity.additional_metadata['bag_of_words'].astext)
                             .op('~*')(xform_func(search_value)))
+
+            # Can have category other than 0 or 1, e.g. 2 for morphological dictionaries.
 
             else:
 
@@ -990,26 +1006,28 @@ def search_mechanism(
                 DBSession
                 
                     .query(
-                        all_entities_cte.c.parent_client_id,
-                        all_entities_cte.c.parent_object_id)
+                        all_entities_cte.c.entry_client_id.label('entry_client_id'),
+                        all_entities_cte.c.entry_object_id.label('entry_object_id'))
 
-                    .filter(and_(*inner_and).self_group())
+                    .filter(
+                        and_(*inner_and).self_group())
 
-                    .distinct())
+                    .group_by(
+                        all_entities_cte.c.entry_client_id,
+                        all_entities_cte.c.entry_object_id))
 
             and_lexes_sum.append(and_lexes_query)
 
-        and_lexes_sum.append(
-            DBSession.query(lexes_cte))
+        if and_lexes_sum:
 
-        and_lexes_sum_query = (
+            and_lexes_sum_query = (
 
-            and_lexes_sum[0].intersect(
-                *and_lexes_sum[1:]))
+                and_lexes_sum[0].intersect(
+                    *and_lexes_sum[1:]))
 
-        full_or_block.append(and_lexes_sum_query)
-
-    # Searching for and getting lexical entries.
+            full_or_block.append(and_lexes_sum_query)
+        
+    # Finalizing search for lexical entries.
 
     if full_or_block:
 
@@ -1022,31 +1040,165 @@ def search_mechanism(
 
                 entry_id_query.union(
                     *full_or_block[1:]))
+        
+    # Just in case check for an empty search, should not be happening.
 
-        query_list = (
-            [dbLexicalEntry.client_id, dbLexicalEntry.object_id] if load_entities else
-            [dbLexicalEntry])
+    else:
 
-        entry_query = (
+        entry_id_query = (
+
+            DBSession
+            
+                .query(
+                    all_entities_cte.c.entry_client_id.label('entry_client_id'),
+                    all_entities_cte.c.entry_object_id.label('entry_object_id'))
+
+                .group_by(
+                    all_entities_cte.c.entry_client_id,
+                    all_entities_cte.c.entry_object_id))
+
+    # Additional final non-specific conditions.
+
+    if (adopted is not None or
+        etymology is not None):
+
+        entry_id_cte = (
+            entry_id_query.cte())
+
+        condition_list = []
+
+        # Filtering for entries which have or do not have content marked as adopted.
+
+        if adopted is not None:
+
+            dbEntityAdopted = aliased(dbEntity)
+
+            adopted_query = (
+
+                DBSession
+
+                    .query(
+                        entry_id_cte.c.entry_client_id,
+                        entry_id_cte.c.entry_object_id)
+
+                    .filter(
+                        dbEntityAdopted.parent_client_id == entry_id_cte.c.entry_client_id,
+                        dbEntityAdopted.parent_object_id == entry_id_cte.c.entry_object_id,
+                        dbEntityAdopted.marked_for_deletion == False,
+                        func.lower(dbEntityAdopted.content).contains('заим.'))
+
+                    .group_by(
+                        entry_id_cte.c.entry_client_id,
+                        entry_id_cte.c.entry_object_id))
+
+            if adopted:
+
+                condition_list.append(
+
+                    tuple_(
+                        entry_id_cte.c.entry_client_id,
+                        entry_id_cte.c.entry_object_id)
+
+                        .in_(
+                            DBSession.query(adopted_query.cte())))
+
+            else:
+
+                condition_list.append(
+
+                    tuple_(
+                        entry_id_cte.c.entry_client_id,
+                        entry_id_cte.c.entry_object_id)
+
+                        .notin_(
+                            DBSession.query(adopted_query.cte())))
+
+        # Filtering for entries based on whether they contain etymology or not.
+
+        if etymology is not None:
+
+            dbEntityEtymology = aliased(dbEntity)
+            dbFieldEtymology = aliased(dbField)
+
+            etymology_gist = translation_gist_search('Grouping Tag')
+
+            etymology_query = (
+
+                DBSession
+
+                    .query(
+                        entry_id_cte.c.entry_client_id,
+                        entry_id_cte.c.entry_object_id)
+
+                    .filter(
+                        dbEntityEtymology.parent_client_id == entry_id_cte.c.entry_client_id,
+                        dbEntityEtymology.parent_object_id == entry_id_cte.c.entry_object_id,
+                        dbEntityEtymology.marked_for_deletion == False,
+                        dbFieldEtymology.id == dbEntityEtymology.field_id,
+                        dbFieldEtymology.marked_for_deletion == False,
+                        dbFieldEtymology.data_type_translation_gist_id == etymology_gist.id)
+
+                    .group_by(
+                        entry_id_cte.c.entry_client_id,
+                        entry_id_cte.c.entry_object_id))
+
+            if etymology:
+
+                condition_list.append(
+
+                    tuple_(
+                        entry_id_cte.c.entry_client_id,
+                        entry_id_cte.c.entry_object_id)
+
+                        .in_(
+                            DBSession.query(etymology_query.cte())))
+
+            else:
+
+                condition_list.append(
+
+                    tuple_(
+                        entry_id_cte.c.entry_client_id,
+                        entry_id_cte.c.entry_object_id)
+
+                        .notin_(
+                            DBSession.query(etymology_query.cte())))
+
+        entry_id_query = (
 
             DBSession
 
                 .query(
-                    *query_list)
+                    entry_id_cte.c.entry_client_id.label('entry_client_id'),
+                    entry_id_cte.c.entry_object_id.label('entry_object_id'))
 
                 .filter(
-                    dbLexicalEntry.marked_for_deletion == False,
+                    *condition_list))
 
-                    tuple_(
-                        dbLexicalEntry.client_id,
-                        dbLexicalEntry.object_id)
-                        .in_(entry_id_query)))
+    # Searching for and getting lexical entries.
 
-        # Showing overall entry query.
+    query_list = (
+        [dbLexicalEntry.client_id, dbLexicalEntry.object_id] if load_entities else
+        [dbLexicalEntry])
 
-        log.info(
-            '\n entry_query:\n ' +
-            str(entry_query.statement.compile(compile_kwargs = {"literal_binds": True})))
+    entry_query = (
+
+        DBSession
+
+            .query(
+                *query_list)
+
+            .filter(
+                tuple_(
+                    dbLexicalEntry.client_id,
+                    dbLexicalEntry.object_id)
+                    .in_(entry_id_query)))
+
+    # Showing overall entry query.
+
+    log.info(
+        '\n entry_query:\n ' +
+        str(entry_query.statement.compile(compile_kwargs = {"literal_binds": True})))
 
     if load_entities:
 
@@ -1228,6 +1380,8 @@ def search_mechanism_simple(
             search_value = (
                 search_string['search_string'])
 
+            # Corpora.
+
             if category == 1:
 
                 if matching_type == 'full_string':
@@ -1247,6 +1401,8 @@ def search_mechanism_simple(
                     inner_and.append(
                         xform_func(cur_dbEntity.additional_metadata['bag_of_words'].astext)
                             .op('~*')(search_value))
+
+            # Can have category other than 0 or 1, e.g. 2 for morphological dictionaries.
 
             else:
 
@@ -1773,7 +1929,7 @@ class AdvancedSearch(LingvodocObjectType):
                     cognates_flag = cognates_flag,
                     __debug_flag__ = __debug_flag__))
 
-            # Normal dictionaries.
+            # Normal dictionaries and morphological dictionaries, which have category 2.
 
             if category != 1:
 
