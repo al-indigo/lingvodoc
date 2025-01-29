@@ -2,9 +2,9 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.preprocessing.text import Tokenizer, tokenizer_from_json
+import itertools
 import json
 import os
-from pdb import set_trace as A
 
 
 class AbsDiffLayer(Layer):
@@ -89,7 +89,7 @@ class NeuroCognates:
         # Токенизация и паддинг входных данных
         seq_input_words = [tokenizer.texts_to_sequences([word]) for word in input_words]
         X_input_words = [pad_sequences(seq, maxlen=max_len, padding='post') for seq in seq_input_words]
-        X_input_translations = [None] * len(X_input_words)
+        X_input_translations = []
 
         if four_tensors:
             seq_input_translations = [tokenizer.texts_to_sequences([trans]) for trans in input_translations]
@@ -103,19 +103,19 @@ class NeuroCognates:
             # Токенизация и паддинг данных для сравнения
             seq_compare_words = [tokenizer.texts_to_sequences([word]) for word in compare_words]
             X_compare_words = [pad_sequences(seq, maxlen=max_len, padding='post') for seq in seq_compare_words]
-            X_compare_translations = [None] * len(X_compare_words)
+            X_compare_translations = []
 
             if four_tensors:
                 seq_compare_translations = [tokenizer.texts_to_sequences([trans]) for trans in compare_translations]
                 X_compare_translations = [pad_sequences(seq, maxlen=max_len, padding='post') for seq in seq_compare_translations]
 
             # Сравнение каждого слова из входного списка с каждым словом из списка для сравнения
-            for input_word, input_trans, input_id, X_word, X_trans in zip(
+            for input_word, input_trans, input_id, X_word, X_trans in itertools.zip_longest(
                     input_words, input_translations, input_lex_ids, X_input_words, X_input_translations):
 
                 similarities = []
 
-                for compare_word, compare_trans, compare_id, X_comp_word, X_comp_trans in zip(
+                for compare_word, compare_trans, compare_id, X_comp_word, X_comp_trans in itertools.zip_longest(
                         compare_words, compare_translations, compare_lex_ids, X_compare_words, X_compare_translations):
 
                     # Передаем 2 или 4 тензора в модель

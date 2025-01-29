@@ -5625,38 +5625,34 @@ class NeuroCognateAnalysis(graphene.Mutation):
     class Arguments:
 
         source_perspective_id = LingvodocID(required = True)
-        base_language_id = LingvodocID(required = True)
-
-        group_field_id = LingvodocID(required = True)
         perspective_info_list = graphene.List(graphene.List(LingvodocID), required = True)
+        base_language_id = LingvodocID()
 
         debug_flag = graphene.Boolean()
 
     triumph = graphene.Boolean()
 
     result = graphene.String()
-    perspective_name_list = graphene.List(graphene.String)
+    #perspective_name_list = graphene.List(graphene.String)
 
     dictionary_count = graphene.Int()
-    group_count = graphene.Int()
-    not_enough_count = graphene.Int()
     transcription_count = graphene.Int()
 
     @staticmethod
     def neuro_cognate_statistics(
-            language_str,
-            base_language_id,
-            base_language_name,
-            group_field_id,
+            #language_str,
+            #base_language_id,
+            #base_language_name,
             perspective_info_list,
             source_perspective_id,
-            locale_id,
-            storage,
+            #locale_id,
+            #storage,
             debug_flag = False):
 
         input_pairs_list = []
         compare_pairs_list = []
         NeuroCognatesEngine = NeuroCognates()
+        total_transcription_count = 0
 
         for (
             _,
@@ -5673,7 +5669,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 xcript_text,
                 xlat_text,
                 _
-            ) in entities_getter(perspective_id, xcript_fid, xlat_fid, get_linked_group = False):
+            ) in entities_getter(perspective_id, xcript_fid, xlat_fid, get_linked_group=False):
 
                 if not xcript_text or not xlat_text:
                     continue
@@ -5685,21 +5681,26 @@ class NeuroCognateAnalysis(graphene.Mutation):
             else:
                 compare_pairs_list.append(current_pairs_list[:])
 
-        result = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list, True)
+            total_transcription_count += len(current_pairs_list)
 
-        A()
+        prediction = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list, True)
 
-        return result
+        result_dict = (
+            dict(
+                triumph=True,
+                result=prediction,
+                dictionary_count=len(perspective_info_list),
+                transcription_count=total_transcription_count))
+
+        return NeuroCognateAnalysis(**result_dict)
 
     @staticmethod
     def mutate(
-        self,
         info,
         source_perspective_id,
         base_language_id,
-        group_field_id,
         perspective_info_list,
-        debug_flag = False):
+        debug_flag=False):
 
         # Administrator / perspective author / editing permission check.
         error_str = (
@@ -5758,61 +5759,58 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
             # Getting base language info.
 
-            locale_id = info.context.locale_id
+            #locale_id = info.context.locale_id
 
-            base_language = DBSession.query(dbLanguage).filter_by(
-                client_id = base_language_id[0], object_id = base_language_id[1]).first()
+            #base_language = DBSession.query(dbLanguage).filter_by(
+                #client_id = base_language_id[0], object_id = base_language_id[1]).first()
 
-            base_language_name = base_language.get_translation(locale_id)
+            #base_language_name = base_language.get_translation(locale_id)
 
-            request = info.context.request
-            storage = request.registry.settings['storage']
+            #request = info.context.request
+            #storage = request.registry.settings['storage']
 
             # Transforming client/object pair ids from lists to 2-tuples.
 
+            #base_language_id = tuple(base_language_id)
+
             source_perspective_id = tuple(source_perspective_id)
-            base_language_id = tuple(base_language_id)
-            group_field_id = tuple(group_field_id)
 
             perspective_info_list = [
 
                 (tuple(language_id),
                  tuple(perspective_id),
-                 tuple(affix_field_id),
+                 tuple(word_field_id),
                  tuple(meaning_field_id),
                  None)
 
                 for language_id,
                     perspective_id,
-                    affix_field_id,
+                    word_field_id,
                     meaning_field_id,
                     _ in perspective_info_list]
 
             return NeuroCognateAnalysis.neuro_cognate_statistics(
-                language_str,
-                base_language_id,
-                base_language_name,
-                group_field_id,
+                #language_str,
+                #base_language_id,
+                #base_language_name,
                 perspective_info_list,
                 source_perspective_id,
-                locale_id,
-                storage,
+                #locale_id,
+                #storage,
                 debug_flag)
 
-        # Exception occured while we tried to perform swadesh analysis.
+        # Exception occurred while we tried to perform swadesh analysis.
         except Exception as exception:
 
-            traceback_string = ''.join(traceback.format_exception(
-                exception, exception, exception.__traceback__))[:-1]
+            traceback_string = ''.join(
+                traceback.format_exception(exception, exception, exception.__traceback__))[:-1]
 
             log.warning(
-                'morph_cognate_analysis {0}: exception'.format(
-                language_str))
+                'neuro_cognate_analysis {0}: exception'.format(language_str))
 
             log.warning(traceback_string)
 
-            return ResponseError(message =
-                'Exception:\n' + traceback_string)
+            return ResponseError(message='Exception:\n' + traceback_string)
 
 
 class ComplexDistance(graphene.Mutation):
