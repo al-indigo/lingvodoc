@@ -1,0 +1,159 @@
+import tensorflow as tf
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.layers import Layer
+from tensorflow.keras.preprocessing.text import Tokenizer, tokenizer_from_json
+import json
+import os
+from pdb import set_trace as A
+
+
+class AbsDiffLayer(Layer):
+    def call(self, inputs):
+        x1, x2 = inputs
+        return tf.math.abs(x1 - x2)
+
+    def get_config(self):
+        config = super(AbsDiffLayer, self).get_config()
+        return config
+
+
+class NeuroCognates:
+    def __init__(self):
+        abspath = os.path.abspath(__file__)
+        dname = os.path.dirname(abspath)
+        os.chdir(dname)
+
+        # Загрузка конфигурации из файла config.json
+        try:
+            with open('config99.json', 'r', encoding='utf-8') as config_file:
+                config = json.load(config_file)
+        except FileNotFoundError:
+            print("Файл config.json не найден. Убедитесь, что файл находится в корневой директории проекта.")
+            config = {}
+        except json.JSONDecodeError:
+            print("Ошибка чтения файла config.json. Проверьте корректность JSON.")
+            config = {}
+
+        self.max_len = config.get('sequence_length')
+        if self.max_len is None:
+            print("sequence_length не найден в config.json. Установлено значение по умолчанию 100.")
+            self.max_len = 100
+
+        self.model = tf.keras.models.load_model(
+            'my_model.keras',
+            custom_objects={'AbsDiffLayer': AbsDiffLayer}
+        )
+
+        with open('tokenizer.json', 'r', encoding='utf-8') as f:
+            tokenizer_data = json.load(f)
+        self.tokenizer = tokenizer_from_json(tokenizer_data)
+
+        try:
+            with open('config_dict.json', 'r', encoding='utf-8') as config_file:
+                config_dict = json.load(config_file)
+        except FileNotFoundError:
+            print("Файл config_dict.json не найден. Убедитесь, что файл находится в корневой директории проекта.")
+            config_dict = {}
+        except json.JSONDecodeError:
+            print("Ошибка чтения файла config_dict.json. Проверьте корректность JSON.")
+            config_dict = {}
+
+        self.max_len_dict = config_dict.get('sequence_length')
+        if self.max_len_dict is None:
+            print("sequence_length не найден в config_dict.json. Установлено значение по умолчанию 100.")
+            self.max_len_dict = 100
+
+        self.model_dict = tf.keras.models.load_model(
+            'my_model_dict.keras',
+            custom_objects={'AbsDiffLayer': AbsDiffLayer}
+        )
+
+        with open('tokenizer_dict.json', 'r', encoding='utf-8') as f:
+            tokenizer_dict_data = json.load(f)
+        self.tokenizer_dict = tokenizer_from_json(tokenizer_dict_data)
+
+    @staticmethod
+    def split_items(items):
+        return (
+            list(map(lambda x: x[0], items)),
+            list(map(lambda x: x[1], items)),
+            list(map(lambda x: x[2], items)))
+
+    @staticmethod
+    def predict_cognates(word_pairs, compare_lists, tokenizer, model, max_len, four_tensors=False):
+        results = []
+
+        # Разделяем входные пары на слова и переводы
+        input_words, input_translations, input_lex_ids = NeuroCognates.split_items(word_pairs)
+
+        # Токенизация и паддинг входных данных
+        seq_input_words = [tokenizer.texts_to_sequences([word]) for word in input_words]
+        X_input_words = [pad_sequences(seq, maxlen=max_len, padding='post') for seq in seq_input_words]
+        X_input_translations = [None] * len(X_input_words)
+
+        if four_tensors:
+            seq_input_translations = [tokenizer.texts_to_sequences([trans]) for trans in input_translations]
+            X_input_translations = [pad_sequences(seq, maxlen=max_len, padding='post') for seq in seq_input_translations]
+
+        # Проход по каждому списку для сравнения
+        for i, compare_list in enumerate(compare_lists):
+
+            compare_words, compare_translations, compare_lex_ids = NeuroCognates.split_items(compare_list)
+
+            # Токенизация и паддинг данных для сравнения
+            seq_compare_words = [tokenizer.texts_to_sequences([word]) for word in compare_words]
+            X_compare_words = [pad_sequences(seq, maxlen=max_len, padding='post') for seq in seq_compare_words]
+            X_compare_translations = [None] * len(X_compare_words)
+
+            if four_tensors:
+                seq_compare_translations = [tokenizer.texts_to_sequences([trans]) for trans in compare_translations]
+                X_compare_translations = [pad_sequences(seq, maxlen=max_len, padding='post') for seq in seq_compare_translations]
+
+            # Сравнение каждого слова из входного списка с каждым словом из списка для сравнения
+            for input_word, input_trans, input_id, X_word, X_trans in zip(
+                    input_words, input_translations, input_lex_ids, X_input_words, X_input_translations):
+
+                similarities = []
+
+                for compare_word, compare_trans, compare_id, X_comp_word, X_comp_trans in zip(
+                        compare_words, compare_translations, compare_lex_ids, X_compare_words, X_compare_translations):
+
+                    # Передаем 2 или 4 тензора в модель
+                    pred = (model.predict([X_word, X_trans, X_comp_word, X_comp_trans])[0][0]
+                            if four_tensors else
+                            model.predict([X_word, X_comp_word])[0][0])
+
+                    if pred > 0.7:  # Фильтр по вероятности > 50%
+                        similarities.append((compare_word, compare_trans, compare_id, f"{pred:.6f}"))
+
+                if similarities:
+                    results.append((f"Список {i + 1}", input_word, input_trans, input_id, similarities))
+
+        return results
+
+    def index(self, word_pairs, compare_lists, four_tensors):
+
+        if not word_pairs:
+            raise KeyError("Список слов пуст. Введите слова для проверки.")
+
+        if not compare_lists:
+            raise KeyError("Списки для сравнения пусты. Введите списки для сравнения.")
+
+        if four_tensors:
+            # Вызов функции для сравнения (модель с 4 тензорами)
+            return NeuroCognates.predict_cognates(
+                word_pairs,
+                compare_lists,
+                self.tokenizer_dict,
+                self.model_dict,
+                self.max_len_dict,
+                four_tensors)
+        else:
+            # Вызов функции для сравнения (модель с 2 тензорами)
+            return NeuroCognates.predict_cognates(
+                word_pairs,
+                compare_lists,
+                self.tokenizer,
+                self.model,
+                self.max_len,
+                four_tensors)

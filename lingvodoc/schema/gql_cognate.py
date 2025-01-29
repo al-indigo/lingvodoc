@@ -116,6 +116,9 @@ import lingvodoc.views.v2.phonology as phonology
 from lingvodoc.views.v2.phonology import process_sound_markup, PickleCache
 
 from lingvodoc.views.v2.utils import anonymous_userid
+from lingvodoc.scripts.list_cognates import entities_getter
+from lingvodoc.utils.neuro_cognates.app import NeuroCognates
+
 from pdb import set_trace as A
 
 
@@ -5598,6 +5601,200 @@ class MorphCognateAnalysis(graphene.Mutation):
                 base_language_name,
                 group_field_id,
                 perspective_info_list,
+                locale_id,
+                storage,
+                debug_flag)
+
+        # Exception occured while we tried to perform swadesh analysis.
+        except Exception as exception:
+
+            traceback_string = ''.join(traceback.format_exception(
+                exception, exception, exception.__traceback__))[:-1]
+
+            log.warning(
+                'morph_cognate_analysis {0}: exception'.format(
+                language_str))
+
+            log.warning(traceback_string)
+
+            return ResponseError(message =
+                'Exception:\n' + traceback_string)
+
+
+class NeuroCognateAnalysis(graphene.Mutation):
+    class Arguments:
+
+        source_perspective_id = LingvodocID(required = True)
+        base_language_id = LingvodocID(required = True)
+
+        group_field_id = LingvodocID(required = True)
+        perspective_info_list = graphene.List(graphene.List(LingvodocID), required = True)
+
+        debug_flag = graphene.Boolean()
+
+    triumph = graphene.Boolean()
+
+    result = graphene.String()
+    perspective_name_list = graphene.List(graphene.String)
+
+    dictionary_count = graphene.Int()
+    group_count = graphene.Int()
+    not_enough_count = graphene.Int()
+    transcription_count = graphene.Int()
+
+    @staticmethod
+    def neuro_cognate_statistics(
+            language_str,
+            base_language_id,
+            base_language_name,
+            group_field_id,
+            perspective_info_list,
+            source_perspective_id,
+            locale_id,
+            storage,
+            debug_flag = False):
+
+        input_pairs_list = []
+        compare_pairs_list = []
+        NeuroCognatesEngine = NeuroCognates()
+
+        for (
+            _,
+            perspective_id,
+            xcript_fid,
+            xlat_fid,
+            _
+        ) in perspective_info_list:
+
+            current_pairs_list = []
+
+            for (
+                lex_id,
+                xcript_text,
+                xlat_text,
+                _
+            ) in entities_getter(perspective_id, xcript_fid, xlat_fid, get_linked_group = False):
+
+                if not xcript_text or not xlat_text:
+                    continue
+
+                current_pairs_list.extend(list(itertools.product(xcript_text, xlat_text, [lex_id])))
+
+            if perspective_id == source_perspective_id:
+                input_pairs_list = current_pairs_list[:]
+            else:
+                compare_pairs_list.append(current_pairs_list[:])
+
+        result = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list, True)
+
+        A()
+
+        return result
+
+    @staticmethod
+    def mutate(
+        self,
+        info,
+        source_perspective_id,
+        base_language_id,
+        group_field_id,
+        perspective_info_list,
+        debug_flag = False):
+
+        # Administrator / perspective author / editing permission check.
+        error_str = (
+            'Only administrator, perspective author and users with perspective editing permissions '
+            'can perform neuro cognate analysis.')
+
+        client_id = info.context.client_id
+
+        if not client_id:
+            return ResponseError(error_str)
+
+        user = Client.get_user_by_client_id(client_id)
+
+        author_client_id_set = (
+
+            set(
+                client_id
+                for _, (client_id, _), _, _, _ in perspective_info_list))
+
+        author_id_check = (
+
+            DBSession
+
+                .query(
+
+                    DBSession
+                        .query(literal(1))
+                        .filter(
+                            Client.id.in_(author_client_id_set),
+                            Client.user_id == user.id)
+                        .exists())
+
+                .scalar())
+
+        if (user.id != 1 and
+            not author_id_check and
+            not info.context.acl_check_if('edit', 'perspective', source_perspective_id)):
+
+            return ResponseError(error_str)
+
+        # Debug mode check.
+
+        if debug_flag and user.id != 1:
+
+            return (
+
+                ResponseError(
+                    message = 'Only administrator can use debug mode.'))
+
+        language_str = (
+            '{0}/{1}, language {2}/{3}'.format(
+                source_perspective_id[0], source_perspective_id[1],
+                base_language_id[0], base_language_id[1]))
+
+        try:
+
+            # Getting base language info.
+
+            locale_id = info.context.locale_id
+
+            base_language = DBSession.query(dbLanguage).filter_by(
+                client_id = base_language_id[0], object_id = base_language_id[1]).first()
+
+            base_language_name = base_language.get_translation(locale_id)
+
+            request = info.context.request
+            storage = request.registry.settings['storage']
+
+            # Transforming client/object pair ids from lists to 2-tuples.
+
+            source_perspective_id = tuple(source_perspective_id)
+            base_language_id = tuple(base_language_id)
+            group_field_id = tuple(group_field_id)
+
+            perspective_info_list = [
+
+                (tuple(language_id),
+                 tuple(perspective_id),
+                 tuple(affix_field_id),
+                 tuple(meaning_field_id),
+                 None)
+
+                for language_id,
+                    perspective_id,
+                    affix_field_id,
+                    meaning_field_id,
+                    _ in perspective_info_list]
+
+            return NeuroCognateAnalysis.neuro_cognate_statistics(
+                language_str,
+                base_language_id,
+                base_language_name,
+                group_field_id,
+                perspective_info_list,
+                source_perspective_id,
                 locale_id,
                 storage,
                 debug_flag)

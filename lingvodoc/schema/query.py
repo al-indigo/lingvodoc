@@ -145,6 +145,7 @@ from lingvodoc.schema.gql_cognate import (
     CognateAnalysis,
     ComplexDistance,
     MorphCognateAnalysis,
+    NeuroCognateAnalysis,
     PhonemicAnalysis,
     SwadeshAnalysis,
     XlsxBulkDisconnect)
@@ -9163,6 +9164,7 @@ class MyMutations(graphene.ObjectType):
     cognate_analysis = CognateAnalysis.Field()
     swadesh_analysis = SwadeshAnalysis.Field()
     morph_cognate_analysis = MorphCognateAnalysis.Field()
+    neuro_cognate_analysis = NeuroCognateAnalysis.Field()
     phonology = Phonology.Field()
     phonological_statistical_distance = PhonologicalStatisticalDistance.Field()
     sound_and_markup = SoundAndMarkup.Field()
