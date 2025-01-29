@@ -5,6 +5,7 @@ from tensorflow.keras.preprocessing.text import Tokenizer, tokenizer_from_json
 import itertools
 import json
 import os
+from time import time
 
 
 class AbsDiffLayer(Layer):
@@ -82,6 +83,10 @@ class NeuroCognates:
     @staticmethod
     def predict_cognates(word_pairs, compare_lists, tokenizer, model, max_len, four_tensors=False):
         results = []
+        total_steps = len(word_pairs) * sum(map(len, compare_lists))
+        current_step = 0
+        start = time()
+
 
         # Разделяем входные пары на слова и переводы
         input_words, input_translations, input_lex_ids = NeuroCognates.split_items(word_pairs)
@@ -123,7 +128,12 @@ class NeuroCognates:
                             if four_tensors else
                             model.predict([X_word, X_comp_word])[0][0])
 
-                    if pred > 0.7:  # Фильтр по вероятности > 50%
+                    current_step += 1
+                    if current_step % 100 == 0:
+                        duration = int(time() - start)
+                        print(f"Done {current_step} of {total_steps} in {duration} sec")
+
+                    if pred > 0.95:  # Фильтр по вероятности > 90%
                         similarities.append((compare_word, compare_trans, compare_id, f"{pred:.6f}"))
 
                 if similarities:

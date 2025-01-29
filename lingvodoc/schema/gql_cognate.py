@@ -5633,6 +5633,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
     triumph = graphene.Boolean()
 
     result = graphene.String()
+    message = graphene.String()
     #perspective_name_list = graphene.List(graphene.String)
 
     dictionary_count = graphene.Int()
@@ -5651,7 +5652,6 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
         input_pairs_list = []
         compare_pairs_list = []
-        NeuroCognatesEngine = NeuroCognates()
         total_transcription_count = 0
 
         for (
@@ -5683,12 +5683,22 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
             total_transcription_count += len(current_pairs_list)
 
-        prediction = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list, True)
+        message = ""
+        triumph = True
+        prediction = None
+
+        if not input_pairs_list or not compare_pairs_list:
+            triumph = False
+            message = "No input words or words to compare is received!"
+        else:
+            NeuroCognatesEngine = NeuroCognates()
+            prediction = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list, True)
 
         result_dict = (
             dict(
-                triumph=True,
+                triumph=triumph,
                 result=prediction,
+                message=message,
                 dictionary_count=len(perspective_info_list),
                 transcription_count=total_transcription_count))
 
@@ -5696,6 +5706,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
     @staticmethod
     def mutate(
+        self,
         info,
         source_perspective_id,
         base_language_id,
