@@ -5633,7 +5633,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
     triumph = graphene.Boolean()
 
-    result = graphene.String()
+    result = ObjectVal()
     message = graphene.String()
     #perspective_name_list = graphene.List(graphene.String)
 

@@ -145,7 +145,7 @@ class NeuroCognates:
                         print(f"Done {current_step} of {total_steps} in {duration} sec "
                               f"({days=} {hours=} {minutes=} estimate time)")
 
-                    if pred > 0.95:  # Фильтр по вероятности > 90%
+                    if pred > 0.97:  # Фильтр по вероятности > 97%
                         similarities.append((compare_word, compare_trans, compare_id, f"{pred:.6f}"))
 
                 if similarities:
