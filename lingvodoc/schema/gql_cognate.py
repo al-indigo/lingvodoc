@@ -5624,9 +5624,10 @@ class MorphCognateAnalysis(graphene.Mutation):
 class NeuroCognateAnalysis(graphene.Mutation):
     class Arguments:
 
-        source_perspective_id = LingvodocID(required = True)
-        perspective_info_list = graphene.List(graphene.List(LingvodocID), required = True)
+        source_perspective_id = LingvodocID(required=True)
+        perspective_info_list = graphene.List(graphene.List(LingvodocID), required=True)
         base_language_id = LingvodocID()
+        input_pairs = ObjectVal()
 
         debug_flag = graphene.Boolean()
 
@@ -5646,13 +5647,15 @@ class NeuroCognateAnalysis(graphene.Mutation):
             #base_language_name,
             perspective_info_list,
             source_perspective_id,
+            input_pairs,
             #locale_id,
             #storage,
             debug_flag = False):
 
-        input_pairs_list = []
+        input_pairs_list = input_pairs or []
         compare_pairs_list = []
-        total_transcription_count = 0
+        compare_perspectives_list = []
+        total_transcription_count = len(input_pairs) if input_pairs else 0
 
         for (
             _,
@@ -5676,12 +5679,13 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
                 current_pairs_list.extend(list(itertools.product(xcript_text, xlat_text, [lex_id])))
 
-            if perspective_id == source_perspective_id:
-                input_pairs_list = current_pairs_list[:]
-            else:
+            if perspective_id != source_perspective_id:
                 compare_pairs_list.append(current_pairs_list[:])
-
-            total_transcription_count += len(current_pairs_list)
+                compare_perspectives_list.append(perspective_id)
+                total_transcription_count += len(current_pairs_list)
+            elif not input_pairs:
+                input_pairs_list = current_pairs_list[:]
+                total_transcription_count += len(current_pairs_list)
 
         message = ""
         triumph = True
@@ -5691,8 +5695,8 @@ class NeuroCognateAnalysis(graphene.Mutation):
             triumph = False
             message = "No input words or words to compare is received!"
         else:
-            NeuroCognatesEngine = NeuroCognates()
-            prediction = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list, True)
+            NeuroCognatesEngine = NeuroCognates(four_tensors=True)
+            prediction = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list)
 
         result_dict = (
             dict(
@@ -5709,8 +5713,9 @@ class NeuroCognateAnalysis(graphene.Mutation):
         self,
         info,
         source_perspective_id,
-        base_language_id,
         perspective_info_list,
+        base_language_id,
+        input_pairs=None,
         debug_flag=False):
 
         # Administrator / perspective author / editing permission check.
@@ -5806,6 +5811,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 #base_language_name,
                 perspective_info_list,
                 source_perspective_id,
+                input_pairs,
                 #locale_id,
                 #storage,
                 debug_flag)
