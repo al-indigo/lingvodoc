@@ -5,7 +5,10 @@ from tensorflow.keras.preprocessing.text import Tokenizer, tokenizer_from_json
 import itertools
 import json
 import os
-from time import time
+import time
+from time import time as now
+import multiprocess
+from pdb import set_trace as A
 
 
 class AbsDiffLayer(Layer):
@@ -88,10 +91,8 @@ class NeuroCognates:
 
     @staticmethod
     def predict_cognates(word_pairs, compare_lists, tokenizer, model, max_len, four_tensors=False):
-        results = []
         total_steps = len(word_pairs) * sum(map(len, compare_lists))
-        current_step = 0
-        start = time()
+        start = now()
 
         # Разделяем входные пары на слова и переводы
         input_words, input_translations, input_lex_ids = NeuroCognates.split_items(word_pairs)
@@ -105,11 +106,12 @@ class NeuroCognates:
             seq_input_translations = [tokenizer.texts_to_sequences([trans]) for trans in input_translations]
             X_input_translations = [pad_sequences(seq, maxlen=max_len, padding='post') for seq in seq_input_translations]
 
-        # Сравнение каждого слова из входного списка с каждым словом из списка для сравнения
-        for input_word, input_trans, input_id, X_word, X_trans in itertools.zip_longest(
-                input_words, input_translations, input_lex_ids, X_input_words, X_input_translations):
+        # Calculate prediction
+        def get_prediction(input_word, input_trans, input_id, X_word, X_trans):
 
             similarities = []
+            result = []
+            current_step = 0
 
             # Проход по каждому списку для сравнения
             for i, compare_list in enumerate(compare_lists):
@@ -137,7 +139,7 @@ class NeuroCognates:
 
                     current_step += 1
                     if current_step % 100 == 0:
-                        duration = int(time() - start)
+                        duration = int(now() - start)
                         estimate = duration / current_step * total_steps
                         days = int(estimate / 86400)
                         hours = int((estimate - days * 86400) / 3600)
@@ -149,7 +151,16 @@ class NeuroCognates:
                         similarities.append((compare_word, compare_trans, compare_id, f"{pred:.6f}"))
 
                 if similarities:
-                    results.append((f"Список {i + 1}", input_word, input_trans, input_id, similarities))
+                    result.append((f"Список {i + 1}", input_word, input_trans, input_id, similarities))
+
+            return result
+
+        with multiprocess.Pool(multiprocess.cpu_count() * 2) as p:
+            results = p.starmap(get_prediction,
+                      itertools.zip_longest(
+                          input_words, input_translations, input_lex_ids, X_input_words, X_input_translations))
+            p.close()
+            p.join()
 
         return results
 
