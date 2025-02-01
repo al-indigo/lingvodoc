@@ -88,7 +88,7 @@ class NeuroCognates:
             list(map(lambda x: x[2], items)))
 
     @staticmethod
-    def predict_cognates(word_pairs, compare_lists, tokenizer, model, max_len, four_tensors=False):
+    def predict_cognates(word_pairs, compare_lists, input_index, tokenizer, model, max_len, four_tensors=False):
 
         # Разделяем входные пары на слова и переводы
         input_words, input_translations, input_lex_ids = NeuroCognates.split_items(word_pairs)
@@ -131,6 +131,9 @@ class NeuroCognates:
             # Проход по каждому списку для сравнения
             for i, compare_list in enumerate(compare_lists):
 
+                if not compare_list:
+                    continue
+
                 compare_words, compare_translations, compare_lex_ids = NeuroCognates.split_items(compare_list)
 
                 for compare_word, compare_trans, compare_id, X_comp_word, X_comp_trans in itertools.zip_longest(
@@ -142,10 +145,16 @@ class NeuroCognates:
                             model.predict([X_word, X_comp_word])[0][0])
 
                     if pred > 0.97:  # Фильтр по вероятности > 97%
-                        similarities.append((compare_word, compare_trans, compare_id, f"{pred:.6f}"))
+                        similarities.append((i, [compare_word, compare_trans], compare_id, f"{pred:.6f}"))
 
                 if similarities:
-                    result.append((f"Список {i + 1}", input_word, input_trans, input_id, similarities))
+                    result.append((
+                         input_index,
+                         f"{input_word} {input_trans}",
+                         input_id,
+                         None,
+                         similarities,
+                         None))
 
             return result
 
@@ -154,17 +163,22 @@ class NeuroCognates:
             results = p.starmap(get_prediction, itertools.zip_longest(
                 input_words, input_translations, input_lex_ids, X_input_words, X_input_translations))
 
+            plain_results = []
+            for result in results:
+                plain_results.extend(result)
+
             p.close()
             p.join()
 
-        return results
+        return plain_results
 
-    def index(self, word_pairs, compare_lists):
+    def index(self, word_pairs, compare_lists, input_index):
         if self.four_tensors:
             # Вызов функции для сравнения (модель с 4 тензорами)
             return NeuroCognates.predict_cognates(
                 word_pairs,
                 compare_lists,
+                input_index,
                 self.tokenizer_dict,
                 self.model_dict,
                 self.max_len_dict,
@@ -174,6 +188,7 @@ class NeuroCognates:
             return NeuroCognates.predict_cognates(
                 word_pairs,
                 compare_lists,
+                input_index,
                 self.tokenizer,
                 self.model,
                 self.max_len,

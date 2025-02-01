@@ -5635,9 +5635,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
     result = ObjectVal()
     message = graphene.String()
-    #perspective_name_list = graphene.List(graphene.String)
-
-    dictionary_count = graphene.Int()
+    perspective_name_list = graphene.List(graphene.String)
     transcription_count = graphene.Int()
 
     @staticmethod
@@ -5648,22 +5646,22 @@ class NeuroCognateAnalysis(graphene.Mutation):
             perspective_info_list,
             source_perspective_id,
             input_pairs,
-            #locale_id,
+            locale_id,
             #storage,
             debug_flag = False):
 
         input_pairs_list = input_pairs or []
         compare_pairs_list = []
-        compare_perspectives_list = []
         total_transcription_count = len(input_pairs) if input_pairs else 0
+        input_index = None
+        perspective_name_list = []
 
         for (
-            _,
+            idx, (_,
             perspective_id,
             xcript_fid,
-            xlat_fid,
-            _
-        ) in perspective_info_list:
+            xlat_fid, _)
+        ) in enumerate(perspective_info_list):
 
             current_pairs_list = []
 
@@ -5681,29 +5679,39 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
             if perspective_id != source_perspective_id:
                 compare_pairs_list.append(current_pairs_list[:])
-                compare_perspectives_list.append(perspective_id)
                 total_transcription_count += len(current_pairs_list)
-            elif not input_pairs:
-                input_pairs_list = current_pairs_list[:]
-                total_transcription_count += len(current_pairs_list)
+            else:
+                input_index = idx
+                compare_pairs_list.append([])
+                if not input_pairs_list:
+                    input_pairs_list = current_pairs_list[:]
+                    total_transcription_count += len(current_pairs_list)
+
+            perspective = DBSession.query(dbPerspective).filter_by(
+                client_id = perspective_id[0], object_id = perspective_id[1]).first()
+
+            perspective_name = perspective.get_translation(locale_id)
+            dictionary_name = perspective.parent.get_translation(locale_id)
+
+            perspective_name_list.append(f"{perspective_name} - {dictionary_name}")
 
         message = ""
         triumph = True
         prediction = None
 
-        if not input_pairs_list or not compare_pairs_list:
+        if not input_pairs_list or not sum(map(len, compare_pairs_list)):
             triumph = False
             message = "No input words or words to compare is received!"
         else:
             NeuroCognatesEngine = NeuroCognates(four_tensors=True)
-            prediction = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list)
+            prediction = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list, input_index)
 
         result_dict = (
             dict(
                 triumph=triumph,
                 result=prediction,
                 message=message,
-                dictionary_count=len(perspective_info_list),
+                perspective_name_list=perspective_name_list,
                 transcription_count=total_transcription_count))
 
         return NeuroCognateAnalysis(**result_dict)
@@ -5775,7 +5783,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
             # Getting base language info.
 
-            #locale_id = info.context.locale_id
+            locale_id = info.context.locale_id
 
             #base_language = DBSession.query(dbLanguage).filter_by(
                 #client_id = base_language_id[0], object_id = base_language_id[1]).first()
@@ -5812,7 +5820,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 perspective_info_list,
                 source_perspective_id,
                 input_pairs,
-                #locale_id,
+                locale_id,
                 #storage,
                 debug_flag)
 
