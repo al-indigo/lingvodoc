@@ -145,16 +145,16 @@ class NeuroCognates:
                             model.predict([X_word, X_comp_word])[0][0])
 
                     if pred > 0.97:  # Фильтр по вероятности > 97%
-                        similarities.append((i, [compare_word, compare_trans], compare_id, f"{pred:.6f}"))
+                        similarities.append((i, [compare_word, compare_trans], compare_id, f"{pred:.4f}"))
 
                 if similarities:
                     result.append((
-                         input_index,
-                         f"{input_word} {input_trans}",
-                         input_id,
-                         None,
-                         similarities,
-                         None))
+                        input_index,
+                        f"{input_word} '{input_trans}'",
+                        input_id,
+                        None,
+                        similarities,
+                        []))
 
             return result
 

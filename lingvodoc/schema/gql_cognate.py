@@ -5633,7 +5633,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
     triumph = graphene.Boolean()
 
-    result = ObjectVal()
+    suggestion_list = ObjectVal()
     message = graphene.String()
     perspective_name_list = graphene.List(graphene.String)
     transcription_count = graphene.Int()
@@ -5709,7 +5709,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
         result_dict = (
             dict(
                 triumph=triumph,
-                result=prediction,
+                suggestion_list=prediction,
                 message=message,
                 perspective_name_list=perspective_name_list,
                 transcription_count=total_transcription_count))
