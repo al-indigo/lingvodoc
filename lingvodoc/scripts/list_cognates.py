@@ -44,6 +44,8 @@ def async_get_json_tree(
 
     result_dict = {}
     language_list = []
+    pairs_list = []
+    delimiters = r'[=:<>.(]'
     cur_language_id = None
     cur_dictionary_id = None
     cur_perspective_id = None
@@ -189,6 +191,12 @@ def async_get_json_tree(
                 xcript_text, xlat_text, linked_group
             )
 
+            if xcript_text and xlat_text:
+                xcript = re.split(delimiters, xcript_text[0])[0].strip()
+                xlat = re.split(delimiters, xlat_text[0])[0].strip()
+
+                pairs_list.append(f"{xcript}:{xlat}:{lex_id[0]}_{lex_id[1]}")
+
             if debug_flag:
                 print(f"{xcript_fname}: {xcript_text}")
                 print(f"{xlat_fname}: {xlat_text}")
@@ -211,6 +219,7 @@ def async_get_json_tree(
         url_list = write_json_file(
             json.dumps(result_dict),
             '\n'.join(str(title) for title in language_list),
+            ', '.join(str(pair) for pair in pairs_list),
             file_name, storage, debug_flag)
 
     except Exception as e:
@@ -557,7 +566,7 @@ def fields_getter(field_query):
             yield None
 
 
-def entities_getter(perspective_id, xcript_fid, xlat_fid):
+def entities_getter(perspective_id, xcript_fid, xlat_fid, get_linked_group=True):
 
     xcript_text = None
     xlat_text = None
@@ -587,15 +596,6 @@ def entities_getter(perspective_id, xcript_fid, xlat_fid):
 
     for lex_id, entities_group in entities_by_lex:
 
-        linked_group = (
-            DBSession
-                .execute(
-                    f'select * from linked_group(66, 25, {lex_id[0]}, {lex_id[1]})')
-                .fetchall())
-
-        # Preparing of linked_group for json-serialization
-        linked_group = list(map(lambda x: tuple(x), linked_group))
-
         entities_by_field = itertools.groupby(entities_group, key = lambda x: (x[2], x[3]))
 
         for field_id, group in entities_by_field:
@@ -607,6 +607,19 @@ def entities_getter(perspective_id, xcript_fid, xlat_fid):
             elif field_id == xlat_fid:
                 xlat_text = field_text
 
+        linked_group = None
+
+        if get_linked_group:
+
+            linked_group = (
+                DBSession
+                    .execute(
+                        f'select * from linked_group(66, 25, {lex_id[0]}, {lex_id[1]})')
+                    .fetchall())
+
+            # Preparing of linked_group for json-serialization
+            linked_group = list(map(lambda x: tuple(x), linked_group))
+
         # Return current found lexical entry with perspective_id
 
         yield (
@@ -616,7 +629,7 @@ def entities_getter(perspective_id, xcript_fid, xlat_fid):
             linked_group)
 
 
-def write_json_file(result_json, result_langs, file_name, storage, debug_flag):
+def write_json_file(result_json, result_langs, pairs_list, file_name, storage, debug_flag):
 
     with tempfile.TemporaryDirectory() as tmp_dir_path:
         tmp_json_file_path = (
@@ -630,6 +643,12 @@ def write_json_file(result_json, result_langs, file_name, storage, debug_flag):
 
         with open(tmp_txt_file_path, 'w') as tmp_txt_file:
             tmp_txt_file.write(result_langs)
+
+        tmp_pairs_file_path = (
+            os.path.join(tmp_dir_path, 'processed_pairs.txt'))
+
+        with open(tmp_pairs_file_path, 'w') as tmp_txt_file:
+            tmp_txt_file.write(pairs_list)
 
         # Saving local copies, if required.
         if debug_flag:
@@ -652,7 +671,11 @@ def write_json_file(result_json, result_langs, file_name, storage, debug_flag):
         current_time = time.time()
         urls = []
 
-        for (f_name, f_temp) in (file_name, tmp_json_file_path), ('processed_languages.txt', tmp_txt_file_path):
+        for (f_name, f_temp) in (
+                (file_name, tmp_json_file_path),
+                ('processed_languages.txt', tmp_txt_file_path),
+                ('processed_pairs.txt', tmp_pairs_file_path)
+        ):
             object_name = (
                     storage_temporary['prefix'] +
                     '/'.join((

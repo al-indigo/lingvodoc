@@ -17,13 +17,17 @@ RUN apt-get update && apt install -y python3-dev python3-setuptools \
     postgresql-server-dev-13 postgresql-client-13 libpq-dev \
     fonts-sil-gentium fonts-sil-gentium-basic fonts-sil-gentiumplus \
     fonts-sil-gentiumplus-compact libfreetype6-dev libxft-dev \
-    ffmpeg libxml2-dev libxslt-dev
+    ffmpeg libxml2-dev libxslt-dev python3.9 python3.9-dev
 RUN \
   wget https://github.com/ispras/lingvodoc-ext-oslon/archive/master.zip -O /tmp/master.zip && \
   unzip /tmp/master.zip -d /tmp/ && \
   g++ -O2 -fPIC -shared -Wl,-soname,liboslon.so -Wno-write-strings -o /usr/lib/liboslon.so /tmp/lingvodoc-ext-oslon-master/analysis.cpp && \
   ldconfig
 RUN \
+  git config --global http.postBuffer 500M && \
+  git config --global http.maxRequestBuffer 100M && \
+  git config --global core.compression 0 && \
+  ln -sf $(which python3.9) /usr/bin/python3 && \
   pip3 install pip==20.0.2 && \
   pip3 install --upgrade setuptools==44.0 && \
   pip3 install -r server-requirements-1.txt && \

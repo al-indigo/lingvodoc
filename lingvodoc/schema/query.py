@@ -8,6 +8,7 @@ import copy
 import gzip
 import hashlib
 import io
+import itertools
 import json
 import logging
 import math
@@ -145,6 +146,7 @@ from lingvodoc.schema.gql_cognate import (
     CognateAnalysis,
     ComplexDistance,
     MorphCognateAnalysis,
+    NeuroCognateAnalysis,
     PhonemicAnalysis,
     SwadeshAnalysis,
     XlsxBulkDisconnect)
@@ -373,6 +375,8 @@ from lingvodoc.views.v2.utils import (
     view_field_from_object)
 
 from operator import attrgetter
+
+from lingvodoc.scripts.list_cognates import entities_getter
 
 from pdb import set_trace as A
 
@@ -682,6 +686,13 @@ class Query(graphene.ObjectType):
         graphene.List(
             Markup,
             perspective_id = LingvodocID(required = True)))
+
+    words = (
+        graphene.Field(
+            ObjectVal,
+            perspective_id = LingvodocID(required = True),
+            xcript_fid = LingvodocID(required = True),
+            xlat_fid = LingvodocID(required = True)))
 
     def resolve_fill_logs(self, info, worker=1):
         # Check if the current user is administrator
@@ -5289,6 +5300,28 @@ class Query(graphene.ObjectType):
 
         return result
 
+    def resolve_words(self,
+                      info,
+                      perspective_id,
+                      xcript_fid,
+                      xlat_fid):
+
+        result_pairs_list = []
+
+        for (
+            lex_id,
+            xcript_text,
+            xlat_text,
+            _
+        ) in entities_getter(tuple(perspective_id), tuple(xcript_fid), tuple(xlat_fid), False):
+
+            if not xcript_text or not xlat_text:
+                continue
+
+            result_pairs_list.extend(list(itertools.product(xcript_text, xlat_text, [lex_id])))
+
+        return result_pairs_list
+
 class PerspectivesAndFields(graphene.InputObjectType):
     perspective_id = LingvodocID()
     field_id = LingvodocID()
@@ -9163,6 +9196,7 @@ class MyMutations(graphene.ObjectType):
     cognate_analysis = CognateAnalysis.Field()
     swadesh_analysis = SwadeshAnalysis.Field()
     morph_cognate_analysis = MorphCognateAnalysis.Field()
+    neuro_cognate_analysis = NeuroCognateAnalysis.Field()
     phonology = Phonology.Field()
     phonological_statistical_distance = PhonologicalStatisticalDistance.Field()
     sound_and_markup = SoundAndMarkup.Field()

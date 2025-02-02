@@ -22,7 +22,7 @@ configparser==4.0.2
 cycler==0.10.0
 DataProperty==0.42.1
 defusedxml==0.6.0
-dill==0.3.6
+dill==0.3.9
 docutils==0.15.2
 dogpile.cache==0.6.8
 et-xmlfile==1.0.1
@@ -43,11 +43,11 @@ kombu==3.0.37
 Logbook==1.1.0
 lxml==4.4.1
 Mako==1.0.4
-MarkupSafe==0.23
+MarkupSafe==2.1.1
 minio==6.0.0
-multiprocess
+multiprocess==0.70.17
 nltk==3.5
-numpy==1.22.0
+numpy==1.23.5
 odfpy==1.4.0
 openpyxl==2.6.4
 packaging==20.3
@@ -60,7 +60,7 @@ promise==2.1
 psycopg2==2.8.6
 pycparser==2.16
 pydub==0.16.5
-Pygments==2.1.3
+Pygments==2.13
 pylev==1.3.0
 #pympi-ling==1.69
 pyparsing==2.2.0
@@ -80,7 +80,7 @@ redis==2.10.5
 regex==2019.6.8
 repoze.lru==0.6
 repoze.sendmail==4.4.1
-requests==2.11.1
+requests==2.22.0
 rtfunicode==2.0
 Rx==1.6.0
 scikit-learn==0.24.1
@@ -98,6 +98,7 @@ sphinxcontrib-qthelp==1.0.2
 sphinxcontrib-serializinghtml==1.1.3
 SQLAlchemy==1.1.2
 tablib==0.13.0
+tensorflow==2.17.0
 #tgt==1.4.2
 tqdm==4.51.0
 transaction==1.6.1
