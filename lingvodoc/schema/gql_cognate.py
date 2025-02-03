@@ -5626,6 +5626,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
         source_perspective_id = LingvodocID(required=True)
         perspective_info_list = graphene.List(graphene.List(LingvodocID), required=True)
+        match_translations = graphene.Boolean()
         base_language_id = LingvodocID()
         input_pairs = ObjectVal()
 
@@ -5645,6 +5646,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
             #base_language_name,
             perspective_info_list,
             source_perspective_id,
+            match_translations,
             input_pairs,
             locale_id,
             #storage,
@@ -5703,7 +5705,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
             triumph = False
             message = "No input words or words to compare is received!"
         else:
-            NeuroCognatesEngine = NeuroCognates(four_tensors=True)
+            NeuroCognatesEngine = NeuroCognates(four_tensors=match_translations)
             prediction = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list, input_index)
 
         result_dict = (
@@ -5722,6 +5724,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
         info,
         source_perspective_id,
         perspective_info_list,
+        match_translations,
         base_language_id,
         input_pairs=None,
         debug_flag=False):
@@ -5819,6 +5822,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 #base_language_name,
                 perspective_info_list,
                 source_perspective_id,
+                match_translations,
                 input_pairs,
                 locale_id,
                 #storage,
