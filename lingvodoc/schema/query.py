@@ -275,7 +275,8 @@ from lingvodoc.schema.gql_search import (
 from lingvodoc.schema.gql_sync import (
     DownloadDictionaries,
     DownloadDictionary,
-    Synchronize)
+    Synchronize,
+    StopMutation)
 
 from lingvodoc.schema.gql_tasks import (
     DeleteTask,
@@ -9224,6 +9225,7 @@ class MyMutations(graphene.ObjectType):
     create_markup_group = CreateMarkupGroup.Field()
     delete_markup_group = DeleteMarkupGroup.Field()
     save_markup_groups = SaveMarkupGroups.Field()
+    stop_mutation = StopMutation.Field()
 
 schema = graphene.Schema(
     query=Query,

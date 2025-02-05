@@ -5629,6 +5629,8 @@ class NeuroCognateAnalysis(graphene.Mutation):
         match_translations = graphene.Boolean()
         base_language_id = LingvodocID()
         input_pairs = ObjectVal()
+        truth_threshold = graphene.Float()
+        stamp = graphene.Float()
 
         debug_flag = graphene.Boolean()
 
@@ -5638,6 +5640,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
     message = graphene.String()
     perspective_name_list = graphene.List(graphene.String)
     transcription_count = graphene.Int()
+    stamp = graphene.Float()
 
     @staticmethod
     def neuro_cognate_statistics(
@@ -5649,6 +5652,8 @@ class NeuroCognateAnalysis(graphene.Mutation):
             match_translations,
             input_pairs,
             locale_id,
+            truth_threshold,
+            stamp,
             #storage,
             debug_flag = False):
 
@@ -5700,17 +5705,29 @@ class NeuroCognateAnalysis(graphene.Mutation):
         message = ""
         triumph = True
         prediction = None
+        compare_len = sum(map(len, compare_pairs_list))
+        stamp_file = f"/tmp/lingvodoc_stamps/{stamp}"
 
-        if not input_pairs_list or not sum(map(len, compare_pairs_list)):
+        if not input_pairs_list or not compare_len:
             triumph = False
-            message = "No input words or words to compare is received!"
+            message = "No input words or words to compare is received"
+        elif compare_len > 10 ** 4:
+            triumph = False
+            message = "Too large dictionaries to compare"
         else:
-            NeuroCognatesEngine = NeuroCognates(four_tensors=match_translations)
-            prediction = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list, input_index)
+            NeuroCognatesEngine = NeuroCognates(
+                compare_pairs_list,
+                input_index,
+                match_translations,
+                truth_threshold,
+                stamp_file)
+
+            prediction = NeuroCognatesEngine.index(input_pairs_list)
 
         result_dict = (
             dict(
                 triumph=triumph,
+                stamp=stamp,
                 suggestion_list=prediction,
                 message=message,
                 perspective_name_list=perspective_name_list,
@@ -5722,10 +5739,12 @@ class NeuroCognateAnalysis(graphene.Mutation):
     def mutate(
         self,
         info,
+        stamp,
         source_perspective_id,
         perspective_info_list,
         match_translations,
         base_language_id,
+        truth_threshold=0.97,
         input_pairs=None,
         debug_flag=False):
 
@@ -5825,6 +5844,8 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 match_translations,
                 input_pairs,
                 locale_id,
+                truth_threshold,
+                stamp,
                 #storage,
                 debug_flag)
 
