@@ -20,9 +20,10 @@ class AbsDiffLayer(Layer):
 
 
 class NeuroCognates:
-    def __init__(self, four_tensors):
+    def __init__(self, four_tensors, truth_threshold):
 
         self.four_tensors = four_tensors
+        self.truth_threshold = truth_threshold
 
         abspath = os.path.abspath(__file__)
         dname = os.path.dirname(abspath)
@@ -88,7 +89,15 @@ class NeuroCognates:
             list(map(lambda x: x[2], items)))
 
     @staticmethod
-    def predict_cognates(word_pairs, compare_lists, input_index, tokenizer, model, max_len, four_tensors=False):
+    def predict_cognates(
+            word_pairs,
+            compare_lists,
+            input_index,
+            tokenizer,
+            model,
+            max_len,
+            four_tensors=False,
+            truth_threshold=0.97):
 
         # Разделяем входные пары на слова и переводы
         input_words, input_translations, input_lex_ids = NeuroCognates.split_items(word_pairs)
@@ -144,7 +153,7 @@ class NeuroCognates:
                             if four_tensors else
                             model.predict([X_word, X_comp_word])[0][0])
 
-                    if pred > 0.97:  # Фильтр по вероятности > 97%
+                    if pred > truth_threshold:  # Фильтр по вероятности
                         similarities.append((i, [compare_word, compare_trans], compare_id, f"{pred:.4f}"))
 
                 if similarities:
@@ -182,7 +191,8 @@ class NeuroCognates:
                 self.tokenizer_dict,
                 self.model_dict,
                 self.max_len_dict,
-                self.four_tensors)
+                self.four_tensors,
+                self.truth_threshold)
         else:
             # Вызов функции для сравнения (модель с 2 тензорами)
             return NeuroCognates.predict_cognates(
@@ -192,4 +202,5 @@ class NeuroCognates:
                 self.tokenizer,
                 self.model,
                 self.max_len,
-                self.four_tensors)
+                self.four_tensors,
+                self.truth_threshold)
