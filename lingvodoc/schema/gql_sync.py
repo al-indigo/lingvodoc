@@ -31,7 +31,8 @@ from lingvodoc.models import (
     ObjectTOC as dbObjectTOC,
     BaseGroup as dbBaseGroup,
     Dictionary as dbDictionary,
-    TranslationGist as dbTranslationGist
+    TranslationGist as dbTranslationGist,
+    Client as dbClient
 )
 from pyramid.security import authenticated_userid
 import logging
@@ -45,8 +46,10 @@ from lingvodoc.views.v2.desktop_sync.core import async_download_dictionary
 import json
 import requests
 from pyramid.request import Request
+from pathlib import Path
 from pyramid.response import Response
 from lingvodoc.utils.search import recursive_sort
+from pdb import set_trace as A
 
 from lingvodoc.cache.caching import CACHE
 
@@ -375,3 +378,30 @@ class Synchronize(graphene.Mutation):
             raise ResponseError('network error 2')
         task.set(16, 100, "Synchronisation complete (New data still can be downloading from server, look a other tasks)", "")
         return Synchronize(triumph=True)
+
+
+class StopMutation(graphene.Mutation):
+
+    class Arguments:
+        stamp = graphene.Float(required=True)
+
+    triumph = graphene.Boolean()
+
+    @staticmethod
+    def mutate(root, info, stamp):
+
+        client_id = info.context.client_id
+        client = DBSession.query(dbClient).filter_by(id=client_id).first()
+
+        if not client:
+            return ResponseError('Only authorized users can stop running mutations.')
+
+        stamps_path = "/tmp/lingvodoc_stamps"
+
+        # Touch stamp file
+        Path(stamps_path).mkdir(exist_ok=True)
+        open(f"{stamps_path}/{stamp}", 'a').close()
+
+        print("!!! Stamp-to-stop")
+
+        return StopMutation(triumph=True)
