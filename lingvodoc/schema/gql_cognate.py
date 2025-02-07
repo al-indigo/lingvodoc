@@ -5706,6 +5706,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
         triumph = True
         prediction = None
         compare_len = sum(map(len, compare_pairs_list))
+        stamp_file = f"/tmp/lingvodoc_stamps/{stamp}"
 
         if not input_pairs_list or not compare_len:
             triumph = False
@@ -5714,8 +5715,14 @@ class NeuroCognateAnalysis(graphene.Mutation):
             triumph = False
             message = "Too large dictionaries to compare"
         else:
-            NeuroCognatesEngine = NeuroCognates(match_translations, truth_threshold)
-            prediction = NeuroCognatesEngine.index(input_pairs_list, compare_pairs_list, input_index)
+            NeuroCognatesEngine = NeuroCognates(
+                compare_pairs_list,
+                input_index,
+                match_translations,
+                truth_threshold,
+                stamp_file)
+
+            prediction = NeuroCognatesEngine.index(input_pairs_list)
 
         result_dict = (
             dict(

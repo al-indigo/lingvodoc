@@ -20,10 +20,13 @@ class AbsDiffLayer(Layer):
 
 
 class NeuroCognates:
-    def __init__(self, four_tensors, truth_threshold):
+    def __init__(self, compare_lists, input_index, four_tensors, truth_threshold, stamp_file):
 
+        self.compare_lists = compare_lists
+        self.input_index = input_index
         self.four_tensors = four_tensors
         self.truth_threshold = truth_threshold
+        self.stamp_file = stamp_file
 
         abspath = os.path.abspath(__file__)
         dname = os.path.dirname(abspath)
@@ -96,6 +99,7 @@ class NeuroCognates:
             tokenizer,
             model,
             max_len,
+            stamp_file,
             four_tensors=False,
             truth_threshold=0.97):
 
@@ -145,8 +149,15 @@ class NeuroCognates:
 
                 compare_words, compare_translations, compare_lex_ids = NeuroCognates.split_items(compare_list)
 
+                count = 0
                 for compare_word, compare_trans, compare_id, X_comp_word, X_comp_trans in itertools.zip_longest(
                     compare_words, compare_translations, compare_lex_ids, X_compare_words[i], X_compare_translations[i]):
+
+                    # Checking stamp-to-stop every hundred comparings
+                    count += 1
+                    if count % 100 == 0 and os.path.isfile(stamp_file):
+                        print("Killed process !!!")
+                        return result
 
                     # Передаем 2 или 4 тензора в модель
                     pred = (model.predict([X_word, X_trans, X_comp_word, X_comp_trans])[0][0]
@@ -179,28 +190,36 @@ class NeuroCognates:
             p.close()
             p.join()
 
+        # Removing stamp-to-stop if exists
+        try:
+            os.remove(stamp_file)
+        except OSError:
+            pass
+
         return plain_results
 
-    def index(self, word_pairs, compare_lists, input_index):
+    def index(self, word_pairs):
         if self.four_tensors:
             # Вызов функции для сравнения (модель с 4 тензорами)
             return NeuroCognates.predict_cognates(
                 word_pairs,
-                compare_lists,
-                input_index,
+                self.compare_lists,
+                self.input_index,
                 self.tokenizer_dict,
                 self.model_dict,
                 self.max_len_dict,
+                self.stamp_file,
                 self.four_tensors,
                 self.truth_threshold)
         else:
             # Вызов функции для сравнения (модель с 2 тензорами)
             return NeuroCognates.predict_cognates(
                 word_pairs,
-                compare_lists,
-                input_index,
+                self.compare_lists,
+                self.input_index,
                 self.tokenizer,
                 self.model,
                 self.max_len,
+                self.stamp_file,
                 self.four_tensors,
                 self.truth_threshold)
