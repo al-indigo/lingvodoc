@@ -5630,7 +5630,6 @@ class NeuroCognateAnalysis(graphene.Mutation):
         base_language_id = LingvodocID()
         input_pairs = ObjectVal()
         truth_threshold = graphene.Float()
-        stamp = graphene.Float()
 
         debug_flag = graphene.Boolean()
 
@@ -5640,27 +5639,25 @@ class NeuroCognateAnalysis(graphene.Mutation):
     message = graphene.String()
     perspective_name_list = graphene.List(graphene.String)
     transcription_count = graphene.Int()
-    stamp = graphene.Float()
 
     @staticmethod
     def neuro_cognate_statistics(
-            #language_str,
-            #base_language_id,
-            #base_language_name,
             perspective_info_list,
             source_perspective_id,
             match_translations,
             input_pairs,
             locale_id,
+            user_id,
             truth_threshold,
-            stamp,
-            #storage,
+            storage,
+            host_url,
+            cache_kwargs,
             debug_flag = False):
 
         input_pairs_list = input_pairs or []
         compare_pairs_list = []
-        total_transcription_count = len(input_pairs) if input_pairs else 0
         input_index = None
+        dictionary_name_list = []
         perspective_name_list = []
 
         for (
@@ -5686,13 +5683,11 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
             if perspective_id != source_perspective_id:
                 compare_pairs_list.append(current_pairs_list[:])
-                total_transcription_count += len(current_pairs_list)
             else:
                 input_index = idx
                 compare_pairs_list.append([])
                 if not input_pairs_list:
                     input_pairs_list = current_pairs_list[:]
-                    total_transcription_count += len(current_pairs_list)
 
             perspective = DBSession.query(dbPerspective).filter_by(
                 client_id = perspective_id[0], object_id = perspective_id[1]).first()
@@ -5700,38 +5695,45 @@ class NeuroCognateAnalysis(graphene.Mutation):
             perspective_name = perspective.get_translation(locale_id)
             dictionary_name = perspective.parent.get_translation(locale_id)
 
+            dictionary_name_list.append(dictionary_name)
             perspective_name_list.append(f"{perspective_name} - {dictionary_name}")
 
         message = ""
         triumph = True
-        prediction = None
+        input_len = len(input_pairs_list)
         compare_len = sum(map(len, compare_pairs_list))
-        stamp_file = f"/tmp/lingvodoc_stamps/{stamp}"
+        dictionaries = []
 
-        if not input_pairs_list or not compare_len:
+        if not input_len or not compare_len:
             triumph = False
             message = "No input words or words to compare is received"
         elif compare_len > 10 ** 4:
             triumph = False
-            message = "Too large dictionaries to compare"
+            message = f"Too many words to compare: {compare_len}"
         else:
+            for i, d in enumerate(dictionary_name_list, 1):
+                dictionaries.append(f"{i}. {d}")
+
+            task = TaskStatus(user_id, 'Neuro cognates computation', '\n\n'.join(dictionaries), input_len)
+            task.set(1, 0, "first words processing...", "")
+
             NeuroCognatesEngine = NeuroCognates(
                 compare_pairs_list,
                 input_index,
+                source_perspective_id,
+                perspective_name_list,
+                storage,
+                host_url,
+                cache_kwargs,
                 match_translations,
-                truth_threshold,
-                stamp_file)
+                truth_threshold)
 
-            prediction = NeuroCognatesEngine.index(input_pairs_list)
+            NeuroCognatesEngine.index(input_pairs_list, task)
 
         result_dict = (
             dict(
                 triumph=triumph,
-                stamp=stamp,
-                suggestion_list=prediction,
-                message=message,
-                perspective_name_list=perspective_name_list,
-                transcription_count=total_transcription_count))
+                message=message))
 
         return NeuroCognateAnalysis(**result_dict)
 
@@ -5739,7 +5741,6 @@ class NeuroCognateAnalysis(graphene.Mutation):
     def mutate(
         self,
         info,
-        stamp,
         source_perspective_id,
         perspective_info_list,
         match_translations,
@@ -5802,18 +5803,12 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 base_language_id[0], base_language_id[1]))
 
         try:
-
-            # Getting base language info.
-
             locale_id = info.context.locale_id
 
-            #base_language = DBSession.query(dbLanguage).filter_by(
-                #client_id = base_language_id[0], object_id = base_language_id[1]).first()
-
-            #base_language_name = base_language.get_translation(locale_id)
-
-            #request = info.context.request
-            #storage = request.registry.settings['storage']
+            request = info.context.request
+            host_url = request.environ['HTTP_ORIGIN']
+            storage = request.registry.settings['storage']
+            cache_kwargs = request.registry.settings['cache_kwargs']
 
             # Transforming client/object pair ids from lists to 2-tuples.
 
@@ -5836,17 +5831,16 @@ class NeuroCognateAnalysis(graphene.Mutation):
                     _ in perspective_info_list]
 
             return NeuroCognateAnalysis.neuro_cognate_statistics(
-                #language_str,
-                #base_language_id,
-                #base_language_name,
                 perspective_info_list,
                 source_perspective_id,
                 match_translations,
                 input_pairs,
                 locale_id,
+                user.id,
                 truth_threshold,
-                stamp,
-                #storage,
+                storage,
+                host_url,
+                cache_kwargs,
                 debug_flag)
 
         # Exception occurred while we tried to perform swadesh analysis.

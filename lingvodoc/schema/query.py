@@ -695,6 +695,11 @@ class Query(graphene.ObjectType):
             xcript_fid = LingvodocID(required = True),
             xlat_fid = LingvodocID(required = True)))
 
+    result_suggestions = (
+        graphene.Field(
+            ObjectVal,
+            result_file = graphene.String(required = True)))
+
     def resolve_fill_logs(self, info, worker=1):
         # Check if the current user is administrator
         client_id = info.context.client_id
@@ -5322,6 +5327,24 @@ class Query(graphene.ObjectType):
             result_pairs_list.extend(list(itertools.product(xcript_text, xlat_text, [lex_id])))
 
         return result_pairs_list
+
+    def resolve_result_suggestions(self,
+                                   info,
+                                   result_file):
+        storage = (
+            info.context.request.registry.settings['storage'])
+
+        pickle_path = os.path.join(storage['path'], 'neuro_cognates', result_file)
+
+        try:
+            with gzip.open(pickle_path, 'rb') as pickle_file:
+                result_dict = pickle.load(pickle_file)
+
+        except:
+            return ResponseError(f'Cannot access file \'{pickle_path}\'.')
+
+        return result_dict
+
 
 class PerspectivesAndFields(graphene.InputObjectType):
     perspective_id = LingvodocID()
