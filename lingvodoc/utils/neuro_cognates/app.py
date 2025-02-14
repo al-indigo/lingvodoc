@@ -26,14 +26,13 @@ class AbsDiffLayer(Layer):
 @celery.task
 def predict_cognates(
         word_pairs,
-        task_key,
+        task,
         cache_kwargs,
         compare_lists,
         input_index,
         tokenizer,
         model,
         max_len,
-        stamp,
         perspective_name_list,
         storage,
         four_tensors=False,
@@ -77,7 +76,7 @@ def predict_cognates(
         else:
             X_compare_translations.append([])
 
-    stamp_file = f"/tmp/lingvodoc_stamps/{stamp}"
+    stamp_file = os.path.join(storage['path'], 'lingvodoc_stamps', str(task.id))
 
 
     # Calculate prediction
@@ -132,7 +131,8 @@ def predict_cognates(
     input_len = len(word_pairs)
     compare_len = sum(map(len, compare_lists))
     initialize_cache(cache_kwargs)
-    task = TaskStatus.get_from_cache(task_key)
+    task = TaskStatus.get_from_cache(task.key)
+    server_url = "http://lingvodoc.ispras.ru/"
 
 
     def add_result(res):
@@ -161,18 +161,13 @@ def predict_cognates(
                     transcription_count = compare_len * current_stage))
 
             storage_dir = os.path.join(storage['path'], 'neuro_cognates')
-            pickle_path = os.path.join(storage_dir, str(stamp))
+            pickle_path = os.path.join(storage_dir, str(task.id))
             os.makedirs(storage_dir, exist_ok=True)
 
             with gzip.open(pickle_path, 'wb') as result_data_file:
                 pickle.dump(result_dict, result_data_file)
 
-            result_link = ''.join([
-                storage['prefix'],
-                storage['static_route'],
-                'suggestions/',
-                str(stamp)
-            ])
+            result_link = ''.join([server_url, 'suggestions/', str(task.id)])
 
         task.set(current_stage, progress, status, result_link)
 
@@ -207,7 +202,6 @@ class NeuroCognates:
                  input_index,
                  four_tensors,
                  truth_threshold,
-                 stamp,
                  perspective_name_list,
                  storage):
 
@@ -215,7 +209,6 @@ class NeuroCognates:
         self.input_index = input_index
         self.four_tensors = four_tensors
         self.truth_threshold = truth_threshold
-        self.stamp = stamp
         self.perspective_name_list = perspective_name_list
         self.storage = storage
 
@@ -279,20 +272,19 @@ class NeuroCognates:
         # Change dir back
         os.chdir(project_dir)
 
-    def index(self, word_pairs, task_key, cache_kwargs):
+    def index(self, word_pairs, task, cache_kwargs):
 
         if self.four_tensors:
             # Вызов функции для сравнения (модель с 4 тензорами)
             return predict_cognates.delay(
                 word_pairs,
-                task_key,
+                task,
                 cache_kwargs,
                 self.compare_lists,
                 self.input_index,
                 self.tokenizer_dict,
                 self.model_dict,
                 self.max_len_dict,
-                self.stamp,
                 self.perspective_name_list,
                 self.storage,
                 self.four_tensors,
@@ -301,14 +293,13 @@ class NeuroCognates:
             # Вызов функции для сравнения (модель с 2 тензорами)
             return predict_cognates.delay(
                 word_pairs,
-                task_key,
+                task,
                 cache_kwargs,
                 self.compare_lists,
                 self.input_index,
                 self.tokenizer,
                 self.model,
                 self.max_len,
-                self.stamp,
                 self.perspective_name_list,
                 self.storage,
                 self.four_tensors,
