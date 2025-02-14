@@ -5708,8 +5708,12 @@ class NeuroCognateAnalysis(graphene.Mutation):
         prediction = []
         input_len = len(input_pairs_list)
         compare_len = sum(map(len, compare_pairs_list))
+        dictionaries = []
 
-        task = TaskStatus(user_id, 'Neuro cognates computation', ';; '.join(dictionary_name_list), input_len)
+        for i, d in enumerate(dictionary_name_list, 1):
+            dictionaries.append(f"{i}. {d}")
+
+        task = TaskStatus(user_id, 'Neuro cognates computation', '\n\n'.join(dictionaries), input_len)
         task.set(1, 0, "first words processing...", "")
 
         if not input_len or not compare_len:
