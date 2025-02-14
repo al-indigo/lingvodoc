@@ -128,6 +128,7 @@ def predict_cognates(
     results = []
     current_stage = 0
     flushed = 0
+    result_link = ""
     input_len = len(word_pairs)
     compare_len = sum(map(len, compare_lists))
     initialize_cache(cache_kwargs)
@@ -135,8 +136,9 @@ def predict_cognates(
 
 
     def add_result(res):
-        nonlocal current_stage, flushed
+        nonlocal current_stage, flushed, result_link
         current_stage += 1
+        finished = (current_stage == input_len)
         passed = now() - start_time
         left = passed / current_stage * input_len - passed
 
@@ -144,13 +146,12 @@ def predict_cognates(
         hours = int((left - days * 86400) / 3600)
         minutes = int((left - days * 86400 - hours * 3600) / 60)
 
-        result_link = ""
-        progress = int(current_stage / input_len * 100)
-        status = f">> {days}d:{hours}h:{minutes}m left <<"
+        progress = 100 if finished else int(current_stage / input_len * 100)
+        status = "Finished" if finished else f">> {days}d:{hours}h:{minutes}m left <<"
 
         results.extend(res)
 
-        if passed - flushed > 300 or current_stage == input_len:
+        if passed - flushed > 300 or finished:
             flushed = passed
 
             result_dict = (
@@ -172,10 +173,6 @@ def predict_cognates(
                 'suggestions/',
                 str(stamp)
             ])
-
-            if current_stage == input_len:
-                progress = 100
-                status = "Finished"
 
         task.set(current_stage, progress, status, result_link)
 
