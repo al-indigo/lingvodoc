@@ -5652,15 +5652,17 @@ class NeuroCognateAnalysis(graphene.Mutation):
             match_translations,
             input_pairs,
             locale_id,
+            user_id,
             truth_threshold,
             stamp,
-            #storage,
+            storage,
+            cache_kwargs,
             debug_flag = False):
 
         input_pairs_list = input_pairs or []
         compare_pairs_list = []
-        total_transcription_count = len(input_pairs) if input_pairs else 0
         input_index = None
+        dictionary_name_list = []
         perspective_name_list = []
 
         for (
@@ -5686,13 +5688,11 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
             if perspective_id != source_perspective_id:
                 compare_pairs_list.append(current_pairs_list[:])
-                total_transcription_count += len(current_pairs_list)
             else:
                 input_index = idx
                 compare_pairs_list.append([])
                 if not input_pairs_list:
                     input_pairs_list = current_pairs_list[:]
-                    total_transcription_count += len(current_pairs_list)
 
             perspective = DBSession.query(dbPerspective).filter_by(
                 client_id = perspective_id[0], object_id = perspective_id[1]).first()
@@ -5700,15 +5700,19 @@ class NeuroCognateAnalysis(graphene.Mutation):
             perspective_name = perspective.get_translation(locale_id)
             dictionary_name = perspective.parent.get_translation(locale_id)
 
+            dictionary_name_list.append(dictionary_name)
             perspective_name_list.append(f"{perspective_name} - {dictionary_name}")
 
         message = ""
         triumph = True
-        prediction = None
+        prediction = []
+        input_len = len(input_pairs_list)
         compare_len = sum(map(len, compare_pairs_list))
-        stamp_file = f"/tmp/lingvodoc_stamps/{stamp}"
 
-        if not input_pairs_list or not compare_len:
+        task = TaskStatus(user_id, 'Neuro cognates computation', ';; '.join(dictionary_name_list), input_len)
+        task.set(1, 0, "first words processing...", "")
+
+        if not input_len or not compare_len:
             triumph = False
             message = "No input words or words to compare is received"
         elif compare_len > 10 ** 4:
@@ -5720,9 +5724,13 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 input_index,
                 match_translations,
                 truth_threshold,
-                stamp_file)
+                stamp,
+                perspective_name_list,
+                storage)
 
-            prediction = NeuroCognatesEngine.index(input_pairs_list)
+            NeuroCognatesEngine.index(input_pairs_list, task.key, cache_kwargs)
+
+            #print('\n' + '@' * 100 + '\n')
 
         result_dict = (
             dict(
@@ -5731,7 +5739,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 suggestion_list=prediction,
                 message=message,
                 perspective_name_list=perspective_name_list,
-                transcription_count=total_transcription_count))
+                transcription_count=0))
 
         return NeuroCognateAnalysis(**result_dict)
 
@@ -5812,8 +5820,9 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
             #base_language_name = base_language.get_translation(locale_id)
 
-            #request = info.context.request
-            #storage = request.registry.settings['storage']
+            request = info.context.request
+            storage = request.registry.settings['storage']
+            cache_kwargs = request.registry.settings['cache_kwargs']
 
             # Transforming client/object pair ids from lists to 2-tuples.
 
@@ -5844,9 +5853,11 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 match_translations,
                 input_pairs,
                 locale_id,
+                user.id,
                 truth_threshold,
                 stamp,
-                #storage,
+                storage,
+                cache_kwargs,
                 debug_flag)
 
         # Exception occurred while we tried to perform swadesh analysis.
