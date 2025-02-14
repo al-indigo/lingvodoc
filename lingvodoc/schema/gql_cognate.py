@@ -5730,8 +5730,6 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
             NeuroCognatesEngine.index(input_pairs_list, task.key, cache_kwargs)
 
-            #print('\n' + '@' * 100 + '\n')
-
         result_dict = (
             dict(
                 triumph=triumph,

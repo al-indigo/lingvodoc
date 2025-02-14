@@ -79,6 +79,7 @@ def predict_cognates(
 
     stamp_file = f"/tmp/lingvodoc_stamps/{stamp}"
 
+
     # Calculate prediction
     def get_prediction(input_word, input_trans, input_id, X_word, X_trans):
 
@@ -122,7 +123,7 @@ def predict_cognates(
 
         return result
 
-    # Get task by task_key and summary compare words number
+
     start_time = now()
     results = []
     current_stage = 0
@@ -131,6 +132,7 @@ def predict_cognates(
     compare_len = sum(map(len, compare_lists))
     initialize_cache(cache_kwargs)
     task = TaskStatus.get_from_cache(task_key)
+
 
     def add_result(res):
         nonlocal current_stage, flushed
@@ -142,7 +144,9 @@ def predict_cognates(
         hours = int((left - days * 86400) / 3600)
         minutes = int((left - days * 86400 - hours * 3600) / 60)
 
-        task.set(current_stage, int(current_stage / input_len * 100), f">> {days}d:{hours}h:{minutes}m left <<", "")
+        result_link = ""
+        progress = int(current_stage / input_len * 100)
+        status = f">> {days}d:{hours}h:{minutes}m left <<"
 
         results.extend(res)
 
@@ -162,13 +166,20 @@ def predict_cognates(
             with gzip.open(pickle_path, 'wb') as result_data_file:
                 pickle.dump(result_dict, result_data_file)
 
-            task.set(input_len, 100, 'Finished',
-                     result_link = ''.join([
-                         storage['prefix'],
-                         storage['static_route'],
-                         'suggestions/',
-                         str(stamp)
-                     ]))
+            result_link = ''.join([
+                storage['prefix'],
+                storage['static_route'],
+                'suggestions/',
+                str(stamp)
+            ])
+
+            if current_stage == input_len:
+                progress = 100
+                status = "Finished"
+
+        task.set(current_stage, progress, status, result_link)
+
+
 
     with multiprocess.Pool(multiprocess.cpu_count() // 2) as p:
         for args in itertools.zip_longest(
