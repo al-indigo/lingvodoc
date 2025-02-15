@@ -104,7 +104,6 @@ def predict_cognates(
                 # Checking stamp-to-stop every hundred comparings
                 count += 1
                 if count % 100 == 0 and os.path.isfile(stamp_file):
-                    print("Killed process !!!")
                     event.set()
                     return None
 
@@ -142,7 +141,9 @@ def predict_cognates(
     task = TaskStatus.get_from_cache(task.key)
 
     def add_result(res):
+
         if res is None:
+            print("Killed process !!!")
             return
 
         nonlocal current_stage, flushed, result_link
@@ -192,15 +193,16 @@ def predict_cognates(
             input_lex_ids,
             X_input_words,
             X_input_translations,
-            [event]
+            [event] * input_len
         ):
 
-            p.apply_async(get_prediction, args, callback=add_result)
+            p.apply_async(get_prediction, args, callback=add_result, error_callback=(lambda e: print(e, flush=True)))
 
         p.close()
 
         # Terminate all the processes on event
         event.wait()
+        print("Killed process !!!")
         task.set(None, -1, "Stopped manually")
         p.terminate()
 
