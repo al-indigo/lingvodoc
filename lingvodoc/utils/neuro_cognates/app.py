@@ -125,6 +125,7 @@ def predict_cognates(
                     []))
 
         if os.path.isfile(stamp_file):
+            event.set()
             return None
 
         return result
@@ -143,7 +144,6 @@ def predict_cognates(
     def add_result(res):
 
         if res is None:
-            print("Killed process !!!")
             return
 
         nonlocal current_stage, flushed, result_link
