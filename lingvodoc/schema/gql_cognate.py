@@ -5642,9 +5642,6 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
     @staticmethod
     def neuro_cognate_statistics(
-            #language_str,
-            #base_language_id,
-            #base_language_name,
             perspective_info_list,
             source_perspective_id,
             match_translations,
@@ -5653,6 +5650,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
             user_id,
             truth_threshold,
             storage,
+            host_url,
             cache_kwargs,
             debug_flag = False):
 
@@ -5726,7 +5724,8 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 match_translations,
                 truth_threshold,
                 perspective_name_list,
-                storage)
+                storage,
+                host_url)
 
             NeuroCognatesEngine.index(input_pairs_list, task, cache_kwargs)
 
@@ -5806,17 +5805,10 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 base_language_id[0], base_language_id[1]))
 
         try:
-
-            # Getting base language info.
-
             locale_id = info.context.locale_id
 
-            #base_language = DBSession.query(dbLanguage).filter_by(
-                #client_id = base_language_id[0], object_id = base_language_id[1]).first()
-
-            #base_language_name = base_language.get_translation(locale_id)
-
             request = info.context.request
+            host_url = request.environ['HTTP_ORIGIN']
             storage = request.registry.settings['storage']
             cache_kwargs = request.registry.settings['cache_kwargs']
 
@@ -5841,9 +5833,6 @@ class NeuroCognateAnalysis(graphene.Mutation):
                     _ in perspective_info_list]
 
             return NeuroCognateAnalysis.neuro_cognate_statistics(
-                #language_str,
-                #base_language_id,
-                #base_language_name,
                 perspective_info_list,
                 source_perspective_id,
                 match_translations,
@@ -5852,6 +5841,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 user.id,
                 truth_threshold,
                 storage,
+                host_url,
                 cache_kwargs,
                 debug_flag)
 

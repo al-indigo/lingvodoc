@@ -35,6 +35,7 @@ def predict_cognates(
         max_len,
         perspective_name_list,
         storage,
+        host_url,
         four_tensors=False,
         truth_threshold=0.97):
 
@@ -132,8 +133,6 @@ def predict_cognates(
     compare_len = sum(map(len, compare_lists))
     initialize_cache(cache_kwargs)
     task = TaskStatus.get_from_cache(task.key)
-    server_url = "http://lingvodoc.ispras.ru/"
-
 
     def add_result(res):
         nonlocal current_stage, flushed, result_link
@@ -167,7 +166,7 @@ def predict_cognates(
             with gzip.open(pickle_path, 'wb') as result_data_file:
                 pickle.dump(result_dict, result_data_file)
 
-            result_link = ''.join([server_url, 'suggestions/', str(task.id)])
+            result_link = ''.join([host_url, 'suggestions/', str(task.id)])
 
         task.set(current_stage, progress, status, result_link)
 
@@ -203,7 +202,8 @@ class NeuroCognates:
                  four_tensors,
                  truth_threshold,
                  perspective_name_list,
-                 storage):
+                 storage,
+                 host_url):
 
         self.compare_lists = compare_lists
         self.input_index = input_index
@@ -211,6 +211,7 @@ class NeuroCognates:
         self.truth_threshold = truth_threshold
         self.perspective_name_list = perspective_name_list
         self.storage = storage
+        self.host_url = host_url
 
         project_dir = os.path.abspath(os.getcwd())
         script_path = os.path.abspath(__file__)
@@ -287,6 +288,7 @@ class NeuroCognates:
                 self.max_len_dict,
                 self.perspective_name_list,
                 self.storage,
+                self.host_url,
                 self.four_tensors,
                 self.truth_threshold)
         else:
@@ -302,5 +304,6 @@ class NeuroCognates:
                 self.max_len,
                 self.perspective_name_list,
                 self.storage,
+                self.host_url,
                 self.four_tensors,
                 self.truth_threshold)
