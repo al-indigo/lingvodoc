@@ -43,10 +43,10 @@ from pyramid.httpexceptions import (
     HTTPUnauthorized
 )
 from lingvodoc.views.v2.desktop_sync.core import async_download_dictionary
+import os
 import json
 import requests
 from pyramid.request import Request
-from pathlib import Path
 from pyramid.response import Response
 from lingvodoc.utils.search import recursive_sort
 from pdb import set_trace as A
@@ -383,7 +383,7 @@ class Synchronize(graphene.Mutation):
 class StopMutation(graphene.Mutation):
 
     class Arguments:
-        stamp = graphene.Float(required=True)
+        stamp = graphene.String(required=True)
 
     triumph = graphene.Boolean()
 
@@ -396,11 +396,13 @@ class StopMutation(graphene.Mutation):
         if not client:
             return ResponseError('Only authorized users can stop running mutations.')
 
-        stamps_path = "/tmp/lingvodoc_stamps"
+        storage = info.context.request.registry.settings['storage']
+        stamp_path = os.path.join(storage['path'], 'lingvodoc_stamps')
+        stamp_file = os.path.join(stamp_path, stamp)
+        os.makedirs(stamp_path, exist_ok=True)
 
         # Touch stamp file
-        Path(stamps_path).mkdir(exist_ok=True)
-        open(f"{stamps_path}/{stamp}", 'a').close()
+        open(stamp_file, 'a').close()
 
         print("!!! Stamp-to-stop")
 

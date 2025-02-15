@@ -81,7 +81,10 @@ def predict_cognates(
 
 
     # Calculate prediction
-    def get_prediction(input_word, input_trans, input_id, X_word, X_trans):
+    def get_prediction(input_word, input_trans, input_id, X_word, X_trans, event):
+
+        if event.is_set():
+            return None
 
         similarities = []
         result = []
@@ -102,7 +105,8 @@ def predict_cognates(
                 count += 1
                 if count % 100 == 0 and os.path.isfile(stamp_file):
                     print("Killed process !!!")
-                    #return result
+                    event.set()
+                    return None
 
                 # Передаем 2 или 4 тензора в модель
                 pred = (model.predict([X_word, X_trans, X_comp_word, X_comp_trans])[0][0]
@@ -121,6 +125,9 @@ def predict_cognates(
                     similarities,
                     []))
 
+        if os.path.isfile(stamp_file):
+            return None
+
         return result
 
 
@@ -135,6 +142,9 @@ def predict_cognates(
     task = TaskStatus.get_from_cache(task.key)
 
     def add_result(res):
+        if res is None:
+            return
+
         nonlocal current_stage, flushed, result_link
         current_stage += 1
         finished = (current_stage == input_len)
@@ -166,25 +176,33 @@ def predict_cognates(
             with gzip.open(pickle_path, 'wb') as result_data_file:
                 pickle.dump(result_dict, result_data_file)
 
-            result_link = ''.join([host_url, 'suggestions/', str(task.id)])
+            result_link = ''.join([host_url, '/suggestions/', str(task.id)])
 
         task.set(current_stage, progress, status, result_link)
 
 
 
     with multiprocess.Pool(multiprocess.cpu_count() // 2) as p:
+
+        event = multiprocess.Manager().Event()
+
         for args in itertools.zip_longest(
             input_words,
             input_translations,
             input_lex_ids,
             X_input_words,
-            X_input_translations
+            X_input_translations,
+            [event]
         ):
 
             p.apply_async(get_prediction, args, callback=add_result)
 
         p.close()
-        p.join()
+
+        # Terminate all the processes on event
+        event.wait()
+        task.set(None, -1, "Stopped manually")
+        p.terminate()
 
     # Removing stamp-to-stop if exists
     try:
