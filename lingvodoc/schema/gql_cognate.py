@@ -5700,24 +5700,23 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
         message = ""
         triumph = True
-        prediction = []
         input_len = len(input_pairs_list)
         compare_len = sum(map(len, compare_pairs_list))
         dictionaries = []
-
-        for i, d in enumerate(dictionary_name_list, 1):
-            dictionaries.append(f"{i}. {d}")
-
-        task = TaskStatus(user_id, 'Neuro cognates computation', '\n\n'.join(dictionaries), input_len)
-        task.set(1, 0, "first words processing...", "")
 
         if not input_len or not compare_len:
             triumph = False
             message = "No input words or words to compare is received"
         elif compare_len > 10 ** 4:
             triumph = False
-            message = "Too large dictionaries to compare"
+            message = f"Too large dictionaries to compare: {compare_len}"
         else:
+            for i, d in enumerate(dictionary_name_list, 1):
+                dictionaries.append(f"{i}. {d}")
+
+            task = TaskStatus(user_id, 'Neuro cognates computation', '\n\n'.join(dictionaries), input_len)
+            task.set(1, 0, "first words processing...", "")
+
             NeuroCognatesEngine = NeuroCognates(
                 compare_pairs_list,
                 input_index,
@@ -5732,10 +5731,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
         result_dict = (
             dict(
                 triumph=triumph,
-                suggestion_list=prediction,
-                message=message,
-                perspective_name_list=perspective_name_list,
-                transcription_count=0))
+                message=message))
 
         return NeuroCognateAnalysis(**result_dict)
 
