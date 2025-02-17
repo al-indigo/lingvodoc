@@ -5720,13 +5720,15 @@ class NeuroCognateAnalysis(graphene.Mutation):
             NeuroCognatesEngine = NeuroCognates(
                 compare_pairs_list,
                 input_index,
-                match_translations,
-                truth_threshold,
+                source_perspective_id,
                 perspective_name_list,
                 storage,
-                host_url)
+                host_url,
+                cache_kwargs,
+                match_translations,
+                truth_threshold)
 
-            NeuroCognatesEngine.index(input_pairs_list, task, cache_kwargs)
+            NeuroCognatesEngine.index(input_pairs_list, task)
 
         result_dict = (
             dict(
