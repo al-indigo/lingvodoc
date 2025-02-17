@@ -157,7 +157,7 @@ def predict_cognates(
         minutes = int((left - days * 86400 - hours * 3600) / 60)
 
         progress = 100 if finished else int(current_stage / input_len * 100)
-        status = "Finished" if finished else f">> {days}d:{hours}h:{minutes}m left <<"
+        status = "Finished" if finished else f"~ {days}d:{hours}h:{minutes}m left ~"
 
         results.extend(res)
 

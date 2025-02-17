@@ -51,7 +51,7 @@ from pyramid.response import Response
 from lingvodoc.utils.search import recursive_sort
 from pdb import set_trace as A
 
-from lingvodoc.cache.caching import CACHE
+from lingvodoc.cache.caching import CACHE, initialize_cache
 
 log = logging.getLogger(__name__)
 
@@ -396,14 +396,23 @@ class StopMutation(graphene.Mutation):
         if not client:
             return ResponseError('Only authorized users can stop running mutations.')
 
-        storage = info.context.request.registry.settings['storage']
+        request = info.context.request
+        storage = request.registry.settings['storage']
         stamp_path = os.path.join(storage['path'], 'lingvodoc_stamps')
         stamp_file = os.path.join(stamp_path, stamp)
         os.makedirs(stamp_path, exist_ok=True)
 
-        # Touch stamp file
-        open(stamp_file, 'a').close()
+        '''
+        cache_kwargs = request.registry.settings['cache_kwargs']
+        initialize_cache(cache_kwargs)
+        task = TaskStatus.get_from_cache(stamp)
+        '''
 
-        print("!!! Stamp-to-stop")
+        # Touch stamp file if it does not exist,
+        # otherwise we delete it
+        if not os.path.isfile(stamp_file):
+            open(stamp_file, 'a').close()
+        else:
+            os.remove(stamp_file)
 
         return StopMutation(triumph=True)
