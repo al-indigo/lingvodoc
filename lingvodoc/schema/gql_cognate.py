@@ -5709,7 +5709,7 @@ class NeuroCognateAnalysis(graphene.Mutation):
             message = "No input words or words to compare is received"
         elif compare_len > 10 ** 4:
             triumph = False
-            message = f"Too large dictionaries to compare: {compare_len}"
+            message = f"Too many words to compare: {compare_len}"
         else:
             for i, d in enumerate(dictionary_name_list, 1):
                 dictionaries.append(f"{i}. {d}")
