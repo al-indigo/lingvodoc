@@ -5761,6 +5761,10 @@ class NeuroCognateAnalysis(graphene.Mutation):
 
         user = Client.get_user_by_client_id(client_id)
 
+        # For now only administrator can use neuro cognates tool
+        if user.id != 1:
+            return ResponseError(error_str)
+
         author_client_id_set = (
 
             set(

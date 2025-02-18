@@ -1,2 +1,2 @@
-include *.txt *.md *.ini *.cfg *.rst
+include *.txt *.md *.ini *.cfg *.rst lingvodoc/utils/neuro_cognates/*.json lingvodoc/utils/neuro_cognates/*.keras
 recursive-include lingvodoc *.ico *.png *.css *.gif *.jpg *.pt *.txt *.mak *.mako *.js *.html *.xml *.svg *.eot *.ttf *.woff *woff2

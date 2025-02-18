@@ -41,7 +41,7 @@ Jinja2==2.10.3
 joblib==0.14.1
 kombu==3.0.37
 Logbook==1.1.0
-lxml==4.4.1
+lxml==4.5.2 #4.4.1
 Mako==1.0.4
 MarkupSafe==2.1.1
 minio==6.0.0
