@@ -264,7 +264,7 @@ class NeuroCognates:
                         suggestion_list=results,
                         perspective_name_list=self.perspective_name_list,
                         transcription_count=compare_len * current_stage,
-                        group_count=group_count if self.only_orphans_flag else 'unknown',
+                        group_count=f"{group_count} filtered" if self.only_orphans_flag else "non-filtered",
                         source_perspective_id=self.source_perspective_id))
 
                 storage_dir = os.path.join(self.storage['path'], 'neuro_cognates')
