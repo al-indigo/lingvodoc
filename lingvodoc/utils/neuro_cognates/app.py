@@ -34,7 +34,8 @@ class NeuroCognates:
                  host_url,
                  cache_kwargs,
                  four_tensors=False,
-                 truth_threshold=0.97):
+                 truth_threshold=0.97,
+                 only_orphans_flag=True):
 
         self.compare_lists = compare_lists
         self.input_index = input_index
@@ -45,6 +46,7 @@ class NeuroCognates:
         self.storage = storage
         self.host_url = host_url
         self.cache_kwargs = cache_kwargs
+        self.only_orphans_flag = only_orphans_flag
 
         project_dir = os.path.abspath(os.getcwd())
         script_path = os.path.abspath(__file__)
@@ -119,10 +121,11 @@ class NeuroCognates:
             return (
                 list(map(lambda x: x[0], items)),
                 list(map(lambda x: x[1], items)),
-                list(map(lambda x: x[2], items)))
+                list(map(lambda x: x[2], items)),
+                list(map(lambda x: x[3], items)))
 
         # Разделяем входные пары на слова и переводы
-        input_words, input_translations, input_lex_ids = split_items(word_pairs)
+        input_words, input_translations, input_lex_ids, input_linked_groups = split_items(word_pairs)
 
         # Токенизация и паддинг входных данных
         seq_input_words = [tokenizer.texts_to_sequences([word]) for word in input_words]
@@ -140,7 +143,7 @@ class NeuroCognates:
         # Проход по каждому списку для сравнения
         for compare_list in self.compare_lists:
 
-            compare_words, compare_translations, compare_lex_ids = split_items(compare_list)
+            compare_words, compare_translations, _, _ = split_items(compare_list)
 
             # Токенизация и паддинг данных для сравнения
             seq_compare_words = [tokenizer.texts_to_sequences([word]) for word in compare_words]
@@ -157,7 +160,7 @@ class NeuroCognates:
         stamp_file = os.path.join(self.storage['path'], 'lingvodoc_stamps', str(task.id))
 
         # Calculate prediction
-        def get_prediction(input_word, input_trans, input_id, X_word, X_trans, event):
+        def get_prediction(input_word, input_trans, input_id, input_links, X_word, X_trans, event):
 
             if event.is_set():
                 return None
@@ -165,18 +168,29 @@ class NeuroCognates:
             similarities = []
             result = []
 
+            count = 0
+            links = 0
+
             # Проход по каждому списку для сравнения
             for i, compare_list in enumerate(self.compare_lists):
 
                 if not compare_list:
                     continue
 
-                compare_words, compare_translations, compare_lex_ids = split_items(compare_list)
+                compare_words, compare_translations, compare_lex_ids, compare_linked_groups = split_items(compare_list)
 
-                count = 0
-                for compare_word, compare_trans, compare_id, X_comp_word, X_comp_trans in itertools.zip_longest(
-                        compare_words, compare_translations, compare_lex_ids, X_compare_words[i],
-                        X_compare_translations[i]):
+                for compare_word, compare_trans, compare_id, compare_links, X_comp_word, X_comp_trans in (
+                        itertools.zip_longest(
+                            compare_words,
+                            compare_translations,
+                            compare_lex_ids,
+                            compare_linked_groups,
+                            X_compare_words[i],
+                            X_compare_translations[i])):
+
+                    if set(input_links) & set(compare_links):
+                        links += 1
+                        continue
 
                     # Checking stamp-to-stop every hundred comparings
                     count += 1
@@ -205,10 +219,11 @@ class NeuroCognates:
                 event.set()
                 return None
 
-            return result
+            return result, links
 
         start_time = now()
         results = []
+        group_count = 0
         current_stage = 0
         flushed = 0
         result_link = ""
@@ -219,10 +234,16 @@ class NeuroCognates:
 
         def add_result(res):
 
+            nonlocal current_stage, flushed, result_link, group_count
+
             if res is None:
                 return
 
-            nonlocal current_stage, flushed, result_link
+            result, links = res
+
+            results.extend(result)
+            group_count += links
+
             current_stage += 1
             finished = (current_stage == input_len)
             passed = now() - start_time
@@ -235,8 +256,6 @@ class NeuroCognates:
             progress = 100 if finished else int(current_stage / input_len * 100)
             status = "Finished" if finished else f"~ {days}d:{hours}h:{minutes}m left ~"
 
-            results.extend(res)
-
             if passed - flushed > 300 or finished:
                 flushed = passed
 
@@ -245,6 +264,7 @@ class NeuroCognates:
                         suggestion_list=results,
                         perspective_name_list=self.perspective_name_list,
                         transcription_count=compare_len * current_stage,
+                        group_count=f"{group_count} filtered" if self.only_orphans_flag else "non-filtered",
                         source_perspective_id=self.source_perspective_id))
 
                 storage_dir = os.path.join(self.storage['path'], 'neuro_cognates')
@@ -261,11 +281,13 @@ class NeuroCognates:
         with multiprocess.Pool(multiprocess.cpu_count() // 2) as p:
 
             event = multiprocess.Manager().Event()
+            task.set(1, 0, "first words processing...")
 
             for args in itertools.zip_longest(
                     input_words,
                     input_translations,
                     input_lex_ids,
+                    input_linked_groups,
                     X_input_words,
                     X_input_translations,
                     [event] * input_len

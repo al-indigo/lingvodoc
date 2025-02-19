@@ -149,7 +149,8 @@ from lingvodoc.schema.gql_cognate import (
     NeuroCognateAnalysis,
     PhonemicAnalysis,
     SwadeshAnalysis,
-    XlsxBulkDisconnect)
+    XlsxBulkDisconnect,
+    SaveSuggestionsState)
 
 from lingvodoc.schema.gql_column import (
     Column,
@@ -5334,16 +5335,30 @@ class Query(graphene.ObjectType):
         storage = (
             info.context.request.registry.settings['storage'])
 
-        pickle_path = os.path.join(storage['path'], 'neuro_cognates', result_file)
+        result_path = os.path.join(storage['path'], 'neuro_cognates', result_file)
 
         try:
-            with gzip.open(pickle_path, 'rb') as pickle_file:
+            with gzip.open(result_path, 'rb') as pickle_file:
                 result_dict = pickle.load(pickle_file)
-
         except:
-            return ResponseError(f'Cannot access file \'{pickle_path}\'.')
+            return ResponseError(f'Cannot access file \'{result_path}\'.')
 
-        return result_dict
+        # We're trying to get file with current user changes
+        sg_state_path = os.path.join(storage['path'], 'neuro_cognates', f'{result_file}_sg')
+
+        sg_state_dict = dict(
+            sg_select_list=None,
+            sg_state_list=None,
+            sg_count=None,
+            sg_entry_map=None)
+
+        try:
+            with gzip.open(sg_state_path, 'rb') as pickle_file:
+                sg_state_dict = pickle.load(pickle_file)
+        except:
+            pass
+
+        return {**result_dict, **sg_state_dict}
 
 
 class PerspectivesAndFields(graphene.InputObjectType):
@@ -9249,6 +9264,7 @@ class MyMutations(graphene.ObjectType):
     delete_markup_group = DeleteMarkupGroup.Field()
     save_markup_groups = SaveMarkupGroups.Field()
     stop_mutation = StopMutation.Field()
+    save_suggestions_state = SaveSuggestionsState.Field()
 
 schema = graphene.Schema(
     query=Query,

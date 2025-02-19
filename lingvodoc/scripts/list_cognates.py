@@ -566,7 +566,7 @@ def fields_getter(field_query):
             yield None
 
 
-def entities_getter(perspective_id, xcript_fid, xlat_fid, get_linked_group=True):
+def entities_getter(perspective_id, xcript_fid, xlat_fid, get_linked_group=True, group_field_id=(66, 25)):
 
     xcript_text = None
     xlat_text = None
@@ -607,14 +607,16 @@ def entities_getter(perspective_id, xcript_fid, xlat_fid, get_linked_group=True)
             elif field_id == xlat_fid:
                 xlat_text = field_text
 
-        linked_group = None
+        linked_group = []
 
         if get_linked_group:
 
             linked_group = (
                 DBSession
                     .execute(
-                        f'select * from linked_group(66, 25, {lex_id[0]}, {lex_id[1]})')
+                        f'select * from linked_group'
+                        f'({group_field_id[0]}, {group_field_id[1]}, {lex_id[0]}, {lex_id[1]})'
+                    )
                     .fetchall())
 
             # Preparing of linked_group for json-serialization

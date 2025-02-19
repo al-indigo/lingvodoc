@@ -5630,15 +5630,14 @@ class NeuroCognateAnalysis(graphene.Mutation):
         base_language_id = LingvodocID()
         input_pairs = ObjectVal()
         truth_threshold = graphene.Float()
+        only_orphans_flag = graphene.Boolean()
+        group_field_id = LingvodocID()
 
         debug_flag = graphene.Boolean()
+        intermediate_flag = graphene.Boolean()
 
     triumph = graphene.Boolean()
-
-    suggestion_list = ObjectVal()
     message = graphene.String()
-    perspective_name_list = graphene.List(graphene.String)
-    transcription_count = graphene.Int()
 
     @staticmethod
     def neuro_cognate_statistics(
@@ -5649,10 +5648,12 @@ class NeuroCognateAnalysis(graphene.Mutation):
             locale_id,
             user_id,
             truth_threshold,
+            only_orphans_flag,
+            group_field_id,
             storage,
             host_url,
             cache_kwargs,
-            debug_flag = False):
+            debug_flag):
 
         input_pairs_list = input_pairs or []
         compare_pairs_list = []
@@ -5673,13 +5674,14 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 lex_id,
                 xcript_text,
                 xlat_text,
-                _
-            ) in entities_getter(perspective_id, xcript_fid, xlat_fid, get_linked_group=False):
+                linked_group
+            ) in entities_getter(perspective_id, xcript_fid, xlat_fid, only_orphans_flag, group_field_id):
 
                 if not xcript_text or not xlat_text:
                     continue
 
-                current_pairs_list.extend(list(itertools.product(xcript_text, xlat_text, [lex_id])))
+                # Gathering each-to-each combinations of transcriptions and translations
+                current_pairs_list.extend(list(itertools.product(xcript_text, xlat_text, [lex_id], [linked_group])))
 
             if perspective_id != source_perspective_id:
                 compare_pairs_list.append(current_pairs_list[:])
@@ -5695,14 +5697,13 @@ class NeuroCognateAnalysis(graphene.Mutation):
             perspective_name = perspective.get_translation(locale_id)
             dictionary_name = perspective.parent.get_translation(locale_id)
 
-            dictionary_name_list.append(dictionary_name)
             perspective_name_list.append(f"{perspective_name} - {dictionary_name}")
+            dictionary_name_list.append(f"{idx + 1}. {dictionary_name}")
 
         message = ""
         triumph = True
         input_len = len(input_pairs_list)
         compare_len = sum(map(len, compare_pairs_list))
-        dictionaries = []
 
         if not input_len or not compare_len:
             triumph = False
@@ -5711,12 +5712,6 @@ class NeuroCognateAnalysis(graphene.Mutation):
             triumph = False
             message = f"Too many words to compare: {compare_len}"
         else:
-            for i, d in enumerate(dictionary_name_list, 1):
-                dictionaries.append(f"{i}. {d}")
-
-            task = TaskStatus(user_id, 'Neuro cognates computation', '\n\n'.join(dictionaries), input_len)
-            task.set(1, 0, "first words processing...", "")
-
             NeuroCognatesEngine = NeuroCognates(
                 compare_pairs_list,
                 input_index,
@@ -5726,9 +5721,14 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 host_url,
                 cache_kwargs,
                 match_translations,
-                truth_threshold)
+                truth_threshold,
+                only_orphans_flag
+            )
 
-            NeuroCognatesEngine.index(input_pairs_list, task)
+            NeuroCognatesEngine.index(
+                input_pairs_list,
+                TaskStatus(user_id, 'Neuro cognates computation', '\n\n'.join(dictionary_name_list), input_len)
+            )
 
         result_dict = (
             dict(
@@ -5746,8 +5746,11 @@ class NeuroCognateAnalysis(graphene.Mutation):
         match_translations,
         base_language_id,
         truth_threshold=0.97,
+        only_orphans_flag=True,
+        group_field_id=(66, 25),
         input_pairs=None,
-        debug_flag=False):
+        debug_flag=False,
+        intermediate_flag=False):
 
         # Administrator / perspective author / editing permission check.
         error_str = (
@@ -5842,6 +5845,8 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 locale_id,
                 user.id,
                 truth_threshold,
+                only_orphans_flag,
+                group_field_id,
                 storage,
                 host_url,
                 cache_kwargs,
@@ -7253,3 +7258,37 @@ if __name__ == '__main__':
 
     print(result)
 
+
+class SaveSuggestionsState(graphene.Mutation):
+
+    class Arguments:
+        result_file = graphene.String(required=True)
+        suggestions_state = ObjectVal()
+        debug_flag = graphene.Boolean()
+
+    triumph = graphene.Boolean()
+
+    @staticmethod
+    def mutate(
+            root,
+            info,
+            result_file,
+            suggestions_state=None,
+            debug_flag=False):
+
+        storage = info.context.request.registry.settings['storage']
+        storage_dir = os.path.join(storage['path'], 'neuro_cognates')
+        pickle_path = os.path.join(storage_dir, f'{result_file}_sg')
+        os.makedirs(storage_dir, exist_ok=True)
+
+        if suggestions_state is None:
+            suggestions_state = dict(
+                sg_select_list=None,
+                sg_state_list=None,
+                sg_count=None,
+                sg_entry_map=None)
+
+        with gzip.open(pickle_path, 'wb') as suggestions_state_file:
+            pickle.dump(suggestions_state, suggestions_state_file)
+
+        return SaveSuggestionsState(triumph=True)
