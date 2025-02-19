@@ -34,7 +34,8 @@ class NeuroCognates:
                  host_url,
                  cache_kwargs,
                  four_tensors=False,
-                 truth_threshold=0.97):
+                 truth_threshold=0.97,
+                 only_orphans_flag=True):
 
         self.compare_lists = compare_lists
         self.input_index = input_index
@@ -45,6 +46,7 @@ class NeuroCognates:
         self.storage = storage
         self.host_url = host_url
         self.cache_kwargs = cache_kwargs
+        self.only_orphans_flag = only_orphans_flag
 
         project_dir = os.path.abspath(os.getcwd())
         script_path = os.path.abspath(__file__)
@@ -262,7 +264,7 @@ class NeuroCognates:
                         suggestion_list=results,
                         perspective_name_list=self.perspective_name_list,
                         transcription_count=compare_len * current_stage,
-                        group_count=group_count,
+                        group_count=group_count if self.only_orphans_flag else 'unknown',
                         source_perspective_id=self.source_perspective_id))
 
                 storage_dir = os.path.join(self.storage['path'], 'neuro_cognates')

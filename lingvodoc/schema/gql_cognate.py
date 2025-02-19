@@ -5721,7 +5721,8 @@ class NeuroCognateAnalysis(graphene.Mutation):
                 host_url,
                 cache_kwargs,
                 match_translations,
-                truth_threshold
+                truth_threshold,
+                only_orphans_flag
             )
 
             NeuroCognatesEngine.index(
