@@ -7258,3 +7258,37 @@ if __name__ == '__main__':
 
     print(result)
 
+
+class SaveSuggestionsState(graphene.Mutation):
+
+    class Arguments:
+        result_file = graphene.String(required=True)
+        suggestions_state = ObjectVal()
+        debug_flag = graphene.Boolean()
+
+    triumph = graphene.Boolean()
+
+    @staticmethod
+    def mutate(
+            root,
+            info,
+            result_file,
+            suggestions_state=None,
+            debug_flag=False):
+
+        storage = info.context.request.registry.settings['storage']
+        storage_dir = os.path.join(storage['path'], 'neuro_cognates')
+        pickle_path = os.path.join(storage_dir, f'{result_file}_sg')
+        os.makedirs(storage_dir, exist_ok=True)
+
+        if suggestions_state is None:
+            suggestions_state = dict(
+                sg_select_list=None,
+                sg_state_list=None,
+                sg_count=None,
+                sg_entry_map=None)
+
+        with gzip.open(pickle_path, 'wb') as suggestions_state_file:
+            pickle.dump(suggestions_state, suggestions_state_file)
+
+        return SaveSuggestionsState(triumph=True)
