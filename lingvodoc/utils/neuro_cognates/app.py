@@ -34,14 +34,14 @@ class NeuroCognates:
                  storage,
                  host_url,
                  cache_kwargs,
-                 four_tensors=False,
+                 distilled=False,
                  truth_threshold=0.97,
                  only_orphans_flag=True):
 
         self.compare_lists = compare_lists
         self.input_index = input_index
         self.source_perspective_id = source_perspective_id
-        self.four_tensors = four_tensors
+        self.distilled = distilled
         self.truth_threshold = truth_threshold
         self.perspective_name_list = perspective_name_list
         self.storage = storage
@@ -69,7 +69,7 @@ class NeuroCognates:
             self.tokenizer = tokenizer_from_json(json.load(f))
 
         # Загрузка моделей
-        if four_tensors:
+        if distilled:
             self.model_distilled = tf.keras.models.load_model(  # Новая модель
                 'final2.keras',
                 custom_objects={'AbsDiffLayer': AbsDiffLayer}
@@ -104,9 +104,11 @@ class NeuroCognates:
             return result, links
 
         def process_text(text):
-            chars = list(text.lower())
+            chars = text.lower() if self.distilled else list(text.lower())
             seq = self.tokenizer.texts_to_sequences([chars])[0]
-            return pad_sequences([seq], maxlen=self.max_len, padding='post', truncating='post')[0]
+            pad1 = pad_sequences([seq], maxlen=self.max_len)
+            pad2 = pad_sequences([seq], maxlen=self.max_len, padding='post', truncating='post')[0]
+            return pad1 if self.distilled else pad2
 
         stamp_file = os.path.join(self.storage['path'], 'lingvodoc_stamps', str(task.id))
 
@@ -133,7 +135,7 @@ class NeuroCognates:
                 X_compare_words = [process_text(w) for w in compare_words]
                 X_compare_trans = [process_text(t) for t in compare_trans]
 
-                if not self.four_tensors:
+                if not self.distilled:
 
                     if os.path.isfile(stamp_file):
                         event.set()
