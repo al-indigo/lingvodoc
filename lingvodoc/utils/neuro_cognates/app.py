@@ -8,6 +8,7 @@ import os
 import gzip
 import pickle
 import multiprocess
+import numpy as np
 from time import time as now
 from lingvodoc.queue.celery import celery
 from lingvodoc.cache.caching import TaskStatus, initialize_cache
@@ -53,57 +54,31 @@ class NeuroCognates:
         script_dir = os.path.dirname(script_path)
         os.chdir(script_dir)
 
+        # Загрузка конфигурации
+        try:
+            with open('config99.json', 'r', encoding='utf-8') as config_file:
+                config = json.load(config_file)
+        except (FileNotFoundError, json.JSONDecodeError):
+            config = {}
+            print("Используются настройки по умолчанию")
+
+        self.max_len = config.get('sequence_length', 100)
+
+        # Загрузка токенизатора
+        with open('tokenizer.json', 'r', encoding='utf-8') as f:
+            self.tokenizer = tokenizer_from_json(json.load(f))
+
+        # Загрузка моделей
         if four_tensors:
-            try:
-                with open('config_dict.json', 'r', encoding='utf-8') as config_file:
-                    config_dict = json.load(config_file)
-            except FileNotFoundError:
-                print("Файл config_dict.json не найден. Убедитесь, что файл находится в корневой директории проекта.")
-                config_dict = {}
-            except json.JSONDecodeError:
-                print("Ошибка чтения файла config_dict.json. Проверьте корректность JSON.")
-                config_dict = {}
-
-            self.max_len_dict = config_dict.get('sequence_length')
-            if self.max_len_dict is None:
-                print("sequence_length не найден в config_dict.json. Установлено значение по умолчанию 100.")
-                self.max_len_dict = 100
-
-            self.model_dict = tf.keras.models.load_model(
-                'my_model_dict.keras',
+            self.model_distilled = tf.keras.models.load_model(  # Новая модель
+                'final2.keras',
                 custom_objects={'AbsDiffLayer': AbsDiffLayer}
             )
-
-            with open('tokenizer_dict.json', 'r', encoding='utf-8') as f:
-                tokenizer_dict_data = json.load(f)
-            self.tokenizer_dict = tokenizer_from_json(tokenizer_dict_data)
-
         else:
-
-            # Загрузка конфигурации из файла config.json
-            try:
-                with open('config99.json', 'r', encoding='utf-8') as config_file:
-                    config = json.load(config_file)
-            except FileNotFoundError:
-                print("Файл config.json не найден. Убедитесь, что файл находится в корневой директории проекта.")
-                config = {}
-            except json.JSONDecodeError:
-                print("Ошибка чтения файла config.json. Проверьте корректность JSON.")
-                config = {}
-
-            self.max_len = config.get('sequence_length')
-            if self.max_len is None:
-                print("sequence_length не найден в config.json. Установлено значение по умолчанию 100.")
-                self.max_len = 100
-
-            self.model = tf.keras.models.load_model(
-                'my_model.keras',
+            self.model_dict = tf.keras.models.load_model(
+                'fasttext_model.keras',
                 custom_objects={'AbsDiffLayer': AbsDiffLayer}
             )
-
-            with open('tokenizer.json', 'r', encoding='utf-8') as f:
-                tokenizer_data = json.load(f)
-            self.tokenizer = tokenizer_from_json(tokenizer_data)
 
         # Change dir back
         os.chdir(project_dir)
@@ -112,64 +87,38 @@ class NeuroCognates:
     def predict_cognates(
             self,
             word_pairs,
-            task,
-            tokenizer,
-            model,
-            max_len):
+            task):
 
-        def split_items(items):
-            return (
-                list(map(lambda x: x[0], items)),
-                list(map(lambda x: x[1], items)),
-                list(map(lambda x: x[2], items)),
-                list(map(lambda x: x[3], items)))
+        def split_items(items, input_links=None):
+            links = 0
+            result = ([], [], [], [])
 
-        # Разделяем входные пары на слова и переводы
-        input_words, input_translations, input_lex_ids, input_linked_groups = split_items(word_pairs)
+            for i in range(len(items)):
+                if input_links and set(input_links) & set(items[i][3]):
+                    links += 1
+                    continue
 
-        # Токенизация и паддинг входных данных
-        seq_input_words = [tokenizer.texts_to_sequences([word]) for word in input_words]
-        X_input_words = [pad_sequences(seq, maxlen=max_len, padding='post') for seq in seq_input_words]
-        X_input_translations = []
+                for j in range(4):
+                    result[j].append(items[i][j])
 
-        if self.four_tensors:
-            seq_input_translations = [tokenizer.texts_to_sequences([trans]) for trans in input_translations]
-            X_input_translations = [pad_sequences(seq, maxlen=max_len, padding='post') for seq in
-                                    seq_input_translations]
+            return result, links
 
-        X_compare_words = []
-        X_compare_translations = []
-
-        # Проход по каждому списку для сравнения
-        for compare_list in self.compare_lists:
-
-            compare_words, compare_translations, _, _ = split_items(compare_list)
-
-            # Токенизация и паддинг данных для сравнения
-            seq_compare_words = [tokenizer.texts_to_sequences([word]) for word in compare_words]
-            X_compare_words.append([pad_sequences(seq, maxlen=max_len, padding='post') for seq in seq_compare_words])
-
-            if self.four_tensors:
-                seq_compare_translations = [tokenizer.texts_to_sequences([trans])
-                                            for trans in compare_translations]
-                X_compare_translations.append([pad_sequences(seq, maxlen=max_len, padding='post')
-                                               for seq in seq_compare_translations])
-            else:
-                X_compare_translations.append([])
+        def process_text(text):
+            chars = list(text.lower())
+            seq = self.tokenizer.texts_to_sequences([chars])[0]
+            return pad_sequences([seq], maxlen=self.max_len, padding='post', truncating='post')[0]
 
         stamp_file = os.path.join(self.storage['path'], 'lingvodoc_stamps', str(task.id))
 
         # Calculate prediction
-        def get_prediction(input_word, input_trans, input_id, input_links, X_word, X_trans, event):
+        def get_prediction(input_word, input_tran, input_id, input_links, X_word, X_tran, event):
 
             if event.is_set():
                 return None
 
-            similarities = []
-            result = []
-
             count = 0
-            links = 0
+            links_total = 0
+            similarities = []
 
             # Проход по каждому списку для сравнения
             for i, compare_list in enumerate(self.compare_lists):
@@ -177,49 +126,72 @@ class NeuroCognates:
                 if not compare_list:
                     continue
 
-                compare_words, compare_translations, compare_lex_ids, compare_linked_groups = split_items(compare_list)
+                (compare_words, compare_trans, compare_lex_ids, _), links = (
+                    split_items(compare_list, input_links))
 
-                for compare_word, compare_trans, compare_id, compare_links, X_comp_word, X_comp_trans in (
-                        itertools.zip_longest(
-                            compare_words,
-                            compare_translations,
-                            compare_lex_ids,
-                            compare_linked_groups,
-                            X_compare_words[i],
-                            X_compare_translations[i])):
+                links_total += links
+                X_compare_words = [process_text(w) for w in compare_words]
+                X_compare_trans = [process_text(t) for t in compare_trans]
 
-                    if set(input_links) & set(compare_links):
-                        links += 1
-                        continue
+                if not self.four_tensors:
+
+                    if os.path.isfile(stamp_file):
+                        event.set()
+                        return None
+
+                    inputs = [
+                        np.array([X_word] * len(compare_words)),
+                        np.array(X_compare_words),
+                        np.array([X_tran] * len(compare_words)),
+                        np.array(X_compare_trans)
+                    ]
+
+                    predictions = self.model_dict.predict(inputs).flatten()
+
+                    for compare_word, compare_tran, compare_id, pred in zip(
+                            compare_words, compare_trans, compare_lex_ids, predictions):
+
+                        if pred > self.truth_threshold:
+                            similarities.append((i, [compare_word, compare_tran], compare_id, f"{pred:.4f}"))
+
+                    continue
+
+                for compare_word, compare_tran, compare_id, X_comp_word, X_comp_tran in zip(
+                        compare_words, compare_trans, compare_lex_ids, X_compare_words, X_compare_trans):
 
                     # Checking stamp-to-stop every hundred comparings
-                    count += 1
                     if count % 100 == 0 and os.path.isfile(stamp_file):
                         event.set()
                         return None
 
-                    # Передаем 2 или 4 тензора в модель
-                    pred = (model.predict([X_word, X_trans, X_comp_word, X_comp_trans])[0][0]
-                            if self.four_tensors else
-                            model.predict([X_word, X_comp_word])[0][0])
+                    count += 1
 
-                    if pred > self.truth_threshold:  # Фильтр по вероятности
-                        similarities.append((i, [compare_word, compare_trans], compare_id, f"{pred:.4f}"))
+                    inputs = [
+                        X_word,
+                        X_tran,
+                        X_comp_word,
+                        X_comp_tran,
+                    ]
 
-                if similarities:
-                    result.append((
-                        self.input_index,
-                        f"{input_word} '{input_trans}'",
-                        input_id,
-                        None,
-                        similarities,
-                        []))
+                    pred = self.model_distilled.predict(inputs)[0][0]
+
+                    if pred > self.truth_threshold:
+                        similarities.append((i, [compare_word, compare_tran], compare_id, f"{pred:.4f}"))
 
             if os.path.isfile(stamp_file):
                 event.set()
                 return None
 
-            return result, links
+            return (
+                [(
+                    self.input_index,
+                    f"{input_word} '{input_tran}'",
+                    input_id,
+                    None,
+                    similarities,
+                    []
+                )] if len(similarities) else []
+            ), links_total
 
         start_time = now()
         results = []
@@ -280,16 +252,24 @@ class NeuroCognates:
 
         with multiprocess.Pool(multiprocess.cpu_count() // 2) as p:
 
+            # Разделяем входные пары на слова и переводы
+            (input_words, input_trans, input_lex_ids, input_linked_groups), _ = split_items(word_pairs)
+
+            # Токенизация и паддинг входных данных
+            X_input_words = [process_text(w) for w in input_words]
+            X_input_trans = [process_text(t) for t in input_trans]
+
             event = multiprocess.Manager().Event()
+
             task.set(1, 0, "first words processing...")
 
-            for args in itertools.zip_longest(
+            for args in zip(
                     input_words,
-                    input_translations,
+                    input_trans,
                     input_lex_ids,
                     input_linked_groups,
                     X_input_words,
-                    X_input_translations,
+                    X_input_trans,
                     [event] * input_len
             ):
                 p.apply_async(get_prediction, args, callback=add_result,
@@ -313,23 +293,7 @@ class NeuroCognates:
 
     def index(self, word_pairs, task):
 
-        if self.four_tensors:
-            # Вызов функции для сравнения (модель с 4 тензорами)
-            # Celery_task needs SELF as an argument!
-            return NeuroCognates.predict_cognates.delay(
-                self,
-                word_pairs,
-                task,
-                self.tokenizer_dict,
-                self.model_dict,
-                self.max_len_dict)
-        else:
-            # Вызов функции для сравнения (модель с 2 тензорами)
-            # Celery_task needs SELF as an argument!
-            return NeuroCognates.predict_cognates.delay(
-                self,
-                word_pairs,
-                task,
-                self.tokenizer,
-                self.model,
-                self.max_len)
+        return NeuroCognates.predict_cognates.delay(
+            self,
+            word_pairs,
+            task)
